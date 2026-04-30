@@ -1,0 +1,8 @@
+*.docx
+*.mp4
+*.pdf
+*.xlsx
+*.zip
+.DS_Store
+node_modules/
+dist/
