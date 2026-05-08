@@ -1,55 +1,55 @@
-import { useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { User, Lock, ArrowRight, ArrowLeft } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { User, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Login() {
-  const [loginMethod, setLoginMethod] = useState('phone') // 'phone' or 'email'
-  const [error, setError] = useState('')
+  const [loginMethod, setLoginMethod] = useState('phone'); // 'phone' or 'email'
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     phone: '',
     email: '',
     password: '',
     code: ''
-  })
-  const { login, isLoading } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = location.state?.from || '/'
-  const scrollY = location.state?.scrollY || 0
+  });
+  const { login, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/';
+  const scrollY = location.state?.scrollY || 0;
 
   const handleBack = () => {
-    navigate(from)
+    navigate(from);
     setTimeout(() => {
-      window.scrollTo(0, scrollY)
-    }, 0)
-  }
+      window.scrollTo(0, scrollY);
+    }, 0);
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    setError('');
 
-    const identifier = loginMethod === 'phone' ? formData.phone.trim() : formData.email.trim()
+    const identifier = loginMethod === 'phone' ? formData.phone.trim() : formData.email.trim();
 
     if (!identifier || !formData.password) {
-      setError('请先填写账号和密码')
-      return
+      setError('请先填写账号和密码');
+      return;
     }
 
     try {
-      await login(identifier, formData.password)
-      navigate(from)
+      await login(identifier, formData.password);
+      navigate(from);
       setTimeout(() => {
-        window.scrollTo(0, scrollY)
-      }, 0)
+        window.scrollTo(0, scrollY);
+      }, 0);
     } catch (err) {
-      setError(err.message || '登录失败，请重试')
+      setError(err.message || '登录失败，请重试');
     }
-  }
+  };
 
   const handleWechatLogin = () => {
-    setError('微信登录暂未接入，当前保留入口')
-  }
+    setError('微信登录暂未接入，当前保留入口');
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 relative">
@@ -251,5 +251,5 @@ export default function Login() {
         </form>
       </div>
     </div>
-  )
+  );
 }

@@ -1,105 +1,105 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Mail, ArrowLeft, ArrowRight, Shield } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Mail, ArrowLeft, ArrowRight, Shield } from 'lucide-react';
 
 export default function ForgotPassword() {
-  const [step, setStep] = useState(1) // 1: input, 2: verify, 3: reset
+  const [step, setStep] = useState(1); // 1: input, 2: verify, 3: reset
   const [formData, setFormData] = useState({
     email: '',
     code: '',
     newPassword: '',
     confirmPassword: ''
-  })
-  const [error, setError] = useState('')
-  const [codeSent, setCodeSent] = useState(false)
-  const [countdown, setCountdown] = useState(0)
-  const timerRef = useRef(null)
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = location.state?.from || '/'
-  const scrollY = location.state?.scrollY || 0
+  });
+  const [error, setError] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const timerRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/';
+  const scrollY = location.state?.scrollY || 0;
 
   useEffect(() => {
     return () => {
       if (timerRef.current) {
-        clearInterval(timerRef.current)
+        clearInterval(timerRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   const handleBack = () => {
-    navigate(from)
+    navigate(from);
     setTimeout(() => {
-      window.scrollTo(0, scrollY)
-    }, 0)
-  }
+      window.scrollTo(0, scrollY);
+    }, 0);
+  };
 
   const handleSendCode = () => {
-    setError('')
+    setError('');
 
     if (!formData.email.trim()) {
-      setError('请先输入邮箱')
-      return false
+      setError('请先输入邮箱');
+      return false;
     }
 
     if (timerRef.current) {
-      clearInterval(timerRef.current)
+      clearInterval(timerRef.current);
     }
 
-    setCodeSent(true)
-    setCountdown(60)
+    setCodeSent(true);
+    setCountdown(60);
     timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           if (timerRef.current) {
-            clearInterval(timerRef.current)
-            timerRef.current = null
+            clearInterval(timerRef.current);
+            timerRef.current = null;
           }
-          return 0
+          return 0;
         }
-        return prev - 1
-      })
-    }, 1000)
+        return prev - 1;
+      });
+    }, 1000);
 
-    return true
-  }
+    return true;
+  };
 
   const handleVerifyCode = (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    setError('')
+    setError('');
 
     if (!codeSent) {
-      setError('请先发送验证码')
-      return
+      setError('请先发送验证码');
+      return;
     }
 
     if (!/^[0-9]{6}$/.test(formData.code.trim())) {
-      setError('请输入 6 位验证码')
-      return
+      setError('请输入 6 位验证码');
+      return;
     }
 
-    setStep(3)
-  }
+    setStep(3);
+  };
 
   const handleResetPassword = (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    setError('')
+    setError('');
 
     if (formData.newPassword !== formData.confirmPassword) {
-      setError('两次输入的密码不一致')
-      return
+      setError('两次输入的密码不一致');
+      return;
     }
 
     if (formData.newPassword.length < 8) {
-      setError('密码长度不能少于8位')
-      return
+      setError('密码长度不能少于8位');
+      return;
     }
 
-    alert('密码重置成功，请使用新密码登录')
-    navigate('/login', { replace: true })
-  }
+    alert('密码重置成功，请使用新密码登录');
+    navigate('/login', { replace: true });
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 relative">
@@ -116,10 +116,10 @@ export default function ForgotPassword() {
             {step === 1 ? '找回密码' : step === 2 ? '验证身份' : '重置密码'}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {step === 1 
-              ? '请输入您的注册邮箱，我们将发送验证码' 
-              : step === 2 
-              ? '请输入邮箱收到的验证码' 
+            {step === 1
+              ? '请输入您的注册邮箱，我们将发送验证码'
+              : step === 2
+              ? '请输入邮箱收到的验证码'
               : '请设置您的新密码'}
           </p>
         </div>
@@ -131,7 +131,15 @@ export default function ForgotPassword() {
         )}
 
         {step === 1 && (
-          <form className="mt-8 space-y-6" onSubmit={(e) => { e.preventDefault(); if (handleSendCode()) setStep(2); }}>
+          <form
+            className="mt-8 space-y-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (handleSendCode()) {
+                setStep(2);
+              }
+            }}
+          >
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 注册邮箱
@@ -256,5 +264,5 @@ export default function ForgotPassword() {
         )}
       </div>
     </div>
-  )
+  );
 }

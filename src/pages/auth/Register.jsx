@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { User, Lock, Mail, ArrowRight, Shield, ArrowLeft } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { User, Lock, ArrowRight, Shield, ArrowLeft } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -10,101 +10,101 @@ export default function Register() {
     password: '',
     confirmPassword: '',
     agreeTerms: false
-  })
-  const [error, setError] = useState('')
-  const [codeSent, setCodeSent] = useState(false)
-  const [countdown, setCountdown] = useState(0)
-  const timerRef = useRef(null)
-  const { register, isLoading } = useAuth()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const from = location.state?.from || '/'
-  const scrollY = location.state?.scrollY || 0
+  });
+  const [error, setError] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const timerRef = useRef(null);
+  const { register, isLoading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/';
+  const scrollY = location.state?.scrollY || 0;
 
   useEffect(() => {
     return () => {
       if (timerRef.current) {
-        clearInterval(timerRef.current)
+        clearInterval(timerRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   const handleBack = () => {
-    navigate(from)
+    navigate(from);
     setTimeout(() => {
-      window.scrollTo(0, scrollY)
-    }, 0)
-  }
+      window.scrollTo(0, scrollY);
+    }, 0);
+  };
 
   const handleSendCode = () => {
-    setError('')
+    setError('');
 
     if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
-      setError('请输入有效的手机号码')
-      return
+      setError('请输入有效的手机号码');
+      return;
     }
 
     if (timerRef.current) {
-      clearInterval(timerRef.current)
+      clearInterval(timerRef.current);
     }
 
-    setCodeSent(true)
-    setCountdown(60)
+    setCodeSent(true);
+    setCountdown(60);
     timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           if (timerRef.current) {
-            clearInterval(timerRef.current)
-            timerRef.current = null
+            clearInterval(timerRef.current);
+            timerRef.current = null;
           }
-          return 0
+          return 0;
         }
-        return prev - 1
-      })
-    }, 1000)
-  }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    setError('')
+    setError('');
 
     if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
-      setError('请输入有效的手机号码')
-      return
+      setError('请输入有效的手机号码');
+      return;
     }
 
     if (!codeSent || !/^[0-9]{6}$/.test(formData.code.trim())) {
-      setError('请先获取并填写 6 位验证码')
-      return
+      setError('请先获取并填写 6 位验证码');
+      return;
     }
 
     if (!formData.agreeTerms) {
-      setError('请先同意用户协议和隐私政策')
-      return
+      setError('请先同意用户协议和隐私政策');
+      return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError('两次输入的密码不一致')
-      return
+      setError('两次输入的密码不一致');
+      return;
     }
 
     if (formData.password.length < 8 || formData.password.length > 20) {
-      setError('密码长度应为8-20位')
-      return
+      setError('密码长度应为8-20位');
+      return;
     }
 
     try {
-      const username = `用户${formData.phone.slice(-4)}`
-      await register(formData.phone.trim(), formData.password, username)
-      navigate(from)
+      const username = `用户${formData.phone.slice(-4)}`;
+      await register(formData.phone.trim(), formData.password, username);
+      navigate(from);
       setTimeout(() => {
-        window.scrollTo(0, scrollY)
-      }, 0)
+        window.scrollTo(0, scrollY);
+      }, 0);
     } catch (err) {
-      setError(err.message || '注册失败，请重试')
+      setError(err.message || '注册失败，请重试');
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 relative">
@@ -284,5 +284,5 @@ export default function Register() {
         </div>
       </div>
     </div>
-  )
+  );
 }
