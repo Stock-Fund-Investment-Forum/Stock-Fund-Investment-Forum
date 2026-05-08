@@ -15,6 +15,7 @@ import Messages from './pages/social/Messages';
 import Groups from './pages/social/Groups';
 import GroupDetail from './pages/social/GroupDetail';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import { AuthProvider } from './context/AuthContext';
 
 function App() {
   return (
@@ -22,8 +23,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           {/* Auth routes without layout */}
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route path="/login" element={<AuthProvider><Login /></AuthProvider>} />
+          <Route path="/register" element={<AuthProvider><Register /></AuthProvider>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
 
           {/* Routes with layout */}
@@ -46,6 +47,6 @@ function App() {
       </BrowserRouter>
     </ErrorBoundary>
   );
-}
+};
 
 export default App;
