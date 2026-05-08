@@ -255,16 +255,14 @@ export default function Settings() {
                         className="sr-only peer"
                       />
                       <div
-                        className="relative w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300"
-                        style={{
-                          backgroundColor: notificationSettings[item.key] ? '#0284c7' : '#d1d5db'
-                        }}
+                        className={`relative w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 ${
+                          notificationSettings[item.key] ? 'bg-primary-600' : 'bg-gray-300'
+                        }`}
                       >
                         <span
-                          className="absolute top-1 left-1 bg-white rounded-full h-4 w-4 transition-all"
-                          style={{
-                            transform: notificationSettings[item.key] ? 'translateX(20px)' : 'translateX(0)'
-                          }}
+                          className={`absolute top-1 left-1 bg-white rounded-full h-4 w-4 transition-all ${
+                            notificationSettings[item.key] ? 'translate-x-5' : 'translate-x-0'
+                          }`}
                         ></span>
                       </div>
                     </label>
@@ -338,16 +336,14 @@ export default function Settings() {
                       className="sr-only peer"
                     />
                     <div
-                      className="relative w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300"
-                      style={{
-                        backgroundColor: privacySettings.allowMention ? '#0284c7' : '#d1d5db'
-                      }}
+                      className={`relative w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 ${
+                        privacySettings.allowMention ? 'bg-primary-600' : 'bg-gray-300'
+                      }`}
                     >
                       <span
-                        className="absolute top-1 left-1 bg-white rounded-full h-4 w-4 transition-all"
-                        style={{
-                          transform: privacySettings.allowMention ? 'translateX(20px)' : 'translateX(0)'
-                        }}
+                        className={`absolute top-1 left-1 bg-white rounded-full h-4 w-4 transition-all ${
+                          privacySettings.allowMention ? 'translate-x-5' : 'translate-x-0'
+                        }`}
                       ></span>
                     </div>
                   </label>
