@@ -49,7 +49,7 @@ export default function CreatePost() {
   }
 
   const handleSubmit = () => {
-    console.log('Submitting post:', { postType, title, content, section, tags })
+    console.warn('Submitting post:', { postType, title, content, section, tags })
     navigate('/')
   }
 

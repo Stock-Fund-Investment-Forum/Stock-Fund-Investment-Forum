@@ -83,7 +83,7 @@ export default function Messages() {
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return
-    console.log('Sending message:', messageText)
+    console.warn('Sending message:', messageText)
     setMessageText('')
   }
 

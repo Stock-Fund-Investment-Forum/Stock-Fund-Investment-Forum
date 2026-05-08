@@ -90,15 +90,15 @@ export default function AdminDashboard() {
   ]
 
   const handleApprovePost = (postId) => {
-    console.log('Approving post:', postId)
+    console.warn('Approving post:', postId)
   }
 
   const handleRejectPost = (postId) => {
-    console.log('Rejecting post:', postId)
+    console.warn('Rejecting post:', postId)
   }
 
   const handleResolveReport = (reportId, action) => {
-    console.log('Resolving report:', reportId, action)
+    console.warn('Resolving report:', reportId, action)
   }
 
   return (

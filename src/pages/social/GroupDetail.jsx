@@ -81,7 +81,7 @@ export default function GroupDetail() {
 
   const handlePostSubmit = () => {
     if (!postText.trim()) return
-    console.log('Submitting group post:', postText)
+    console.warn('Submitting group post:', postText)
     setPostText('')
   }
 

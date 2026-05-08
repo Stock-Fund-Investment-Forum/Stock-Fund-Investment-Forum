@@ -108,7 +108,7 @@ export default function PostDetail() {
   const handleSubmitComment = () => {
     if (!commentText.trim()) return
     // TODO: Submit comment
-    console.log('Submitting comment:', { text: commentText, replyTo: replyingTo })
+    console.warn('Submitting comment:', { text: commentText, replyTo: replyingTo })
     setCommentText('')
     setReplyingTo(null)
   }
