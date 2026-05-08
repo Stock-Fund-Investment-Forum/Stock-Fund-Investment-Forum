@@ -254,8 +254,8 @@ const withAuth = (Component) => {
 
 ## 🚀 部署清单
 
-- [ ] 运行 `npm run lint` 检查代码
-- [ ] 运行 `npm run build` 检查构建
+- [x] 运行 `npm run lint` 检查代码
+- [x] 运行 `npm run build` 检查构建
 - [ ] 验证所有路由
 - [ ] 测试响应式设计
 - [ ] 检查控制台错误
