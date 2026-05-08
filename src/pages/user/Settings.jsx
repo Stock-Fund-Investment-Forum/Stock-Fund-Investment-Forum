@@ -1,10 +1,9 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { User, Lock, Bell, Shield, Eye, Globe, ChevronRight, Camera } from 'lucide-react'
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { User, Lock, Bell, Shield, Globe, ChevronRight, Camera, Check } from 'lucide-react';
 
 export default function Settings() {
-  const navigate = useNavigate()
-  const [activeSection, setActiveSection] = useState('profile')
+  const [activeSection, setActiveSection] = useState('profile');
   const [formData, setFormData] = useState({
     nickname: '价值猎人',
     bio: '专注价值投资，相信复利的力量。分享投资心得，与志同道合者交流。',
@@ -12,18 +11,26 @@ export default function Settings() {
     website: 'https://example.com',
     email: 'user@example.com',
     phone: '138****8888'
-  })
+  });
   const [investmentPreferences, setInvestmentPreferences] = useState({
     markets: ['A股', '港股'],
-    style: '成长型',
+    style: '进取型',
     industries: ['科技', '消费']
-  })
+  });
+  const [notificationSettings, setNotificationSettings] = useState({
+    newFollower: true,
+    commentNotification: true,
+    likeNotification: true,
+    mentionNotification: true,
+    messageNotification: true,
+    systemNotification: true
+  });
   const [privacySettings, setPrivacySettings] = useState({
     bioVisible: 'everyone',
     followingVisible: 'everyone',
     favoritesVisible: 'everyone',
     allowMention: true
-  })
+  });
 
   const sections = [
     { id: 'profile', label: '个人资料', icon: User },
@@ -31,22 +38,27 @@ export default function Settings() {
     { id: 'notifications', label: '通知设置', icon: Bell },
     { id: 'privacy', label: '隐私设置', icon: Shield },
     { id: 'preferences', label: '投资偏好', icon: Globe }
-  ]
+  ];
 
   const handleSaveProfile = () => {
-    console.log('Saving profile:', formData)
-    alert('资料保存成功')
-  }
+    console.warn('Saving profile:', formData);
+    alert('资料保存成功');
+  };
 
   const handleSavePreferences = () => {
-    console.log('Saving preferences:', investmentPreferences)
-    alert('偏好保存成功')
-  }
+    console.warn('Saving preferences:', investmentPreferences);
+    alert('偏好保存成功');
+  };
 
   const handleSavePrivacy = () => {
-    console.log('Saving privacy:', privacySettings)
-    alert('隐私设置保存成功')
-  }
+    console.warn('Saving privacy:', privacySettings);
+    alert('隐私设置保存成功');
+  };
+
+  const handleSaveNotifications = () => {
+    console.warn('Saving notifications:', notificationSettings);
+    alert('通知设置保存成功');
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -80,7 +92,7 @@ export default function Settings() {
           {activeSection === 'profile' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold mb-6">个人资料</h2>
-              
+
               {/* Avatar */}
               <div className="flex items-center space-x-6 mb-8">
                 <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center text-5xl relative">
@@ -152,7 +164,7 @@ export default function Settings() {
           {activeSection === 'security' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold mb-6">账号安全</h2>
-              
+
               <div className="space-y-6">
                 <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                   <div>
@@ -217,27 +229,53 @@ export default function Settings() {
           {activeSection === 'notifications' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold mb-6">通知设置</h2>
-              
+
               <div className="space-y-4">
                 {[
-                  { label: '新粉丝通知', desc: '当有新用户关注你时通知' },
-                  { label: '评论通知', desc: '当有人评论你的帖子时通知' },
-                  { label: '点赞通知', desc: '当有人点赞你的内容时通知' },
-                  { label: '@提及通知', desc: '当有人@你时通知' },
-                  { label: '私信通知', desc: '当收到新私信时通知' },
-                  { label: '系统通知', desc: '接收系统公告和活动通知' }
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  { key: 'newFollower', label: '新粉丝通知', desc: '当有新用户关注你时通知' },
+                  { key: 'commentNotification', label: '评论通知', desc: '当有人评论你的帖子时通知' },
+                  { key: 'likeNotification', label: '点赞通知', desc: '当有人点赞你的内容时通知' },
+                  { key: 'mentionNotification', label: '@提及通知', desc: '当有人@你时通知' },
+                  { key: 'messageNotification', label: '私信通知', desc: '当收到新私信时通知' },
+                  { key: 'systemNotification', label: '系统通知', desc: '接收系统公告和活动通知' }
+                ].map((item) => (
+                  <div key={item.key} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                     <div>
                       <h3 className="font-medium text-gray-900">{item.label}</h3>
                       <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" defaultChecked className="sr-only peer" />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                      <input
+                        type="checkbox"
+                        checked={notificationSettings[item.key]}
+                        onChange={(e) => setNotificationSettings({
+                          ...notificationSettings,
+                          [item.key]: e.target.checked
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div
+                        className="relative w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300"
+                        style={{
+                          backgroundColor: notificationSettings[item.key] ? '#0284c7' : '#d1d5db'
+                        }}
+                      >
+                        <span
+                          className="absolute top-1 left-1 bg-white rounded-full h-4 w-4 transition-all"
+                          style={{
+                            transform: notificationSettings[item.key] ? 'translateX(20px)' : 'translateX(0)'
+                          }}
+                        ></span>
+                      </div>
                     </label>
                   </div>
                 ))}
+              </div>
+
+              <div className="pt-4 border-t border-gray-200">
+                <button onClick={handleSaveNotifications} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                  保存设置
+                </button>
               </div>
             </div>
           )}
@@ -246,7 +284,7 @@ export default function Settings() {
           {activeSection === 'privacy' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold mb-6">隐私设置</h2>
-              
+
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">个人简介可见范围</label>
@@ -299,7 +337,19 @@ export default function Settings() {
                       onChange={(e) => setPrivacySettings({ ...privacySettings, allowMention: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    <div
+                      className="relative w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300"
+                      style={{
+                        backgroundColor: privacySettings.allowMention ? '#0284c7' : '#d1d5db'
+                      }}
+                    >
+                      <span
+                        className="absolute top-1 left-1 bg-white rounded-full h-4 w-4 transition-all"
+                        style={{
+                          transform: privacySettings.allowMention ? 'translateX(20px)' : 'translateX(0)'
+                        }}
+                      ></span>
+                    </div>
                   </label>
                 </div>
 
@@ -316,10 +366,9 @@ export default function Settings() {
           {activeSection === 'preferences' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <h2 className="text-xl font-bold mb-6">投资偏好</h2>
-              
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">关注市场</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">关注市场</label>
                   <div className="flex flex-wrap gap-2">
                     {['A股', '港股', '美股', '基金', '期货'].map((market) => (
                       <button
@@ -329,20 +378,23 @@ export default function Settings() {
                             setInvestmentPreferences({
                               ...investmentPreferences,
                               markets: investmentPreferences.markets.filter(m => m !== market)
-                            })
+                            });
                           } else {
                             setInvestmentPreferences({
                               ...investmentPreferences,
                               markets: [...investmentPreferences.markets, market]
-                            })
+                            });
                           }
                         }}
-                        className={`px-4 py-2 rounded-lg ${
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium ${
                           investmentPreferences.markets.includes(market)
-                            ? 'bg-primary-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary-50 border-primary-600 text-primary-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
                         }`}
                       >
+                        {investmentPreferences.markets.includes(market) && (
+                          <Check size={16} />
+                        )}
                         {market}
                       </button>
                     ))}
@@ -350,18 +402,21 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">风险偏好</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">风险偏好</label>
                   <div className="flex flex-wrap gap-2">
                     {['保守型', '稳健型', '进取型'].map((style) => (
                       <button
                         key={style}
                         onClick={() => setInvestmentPreferences({ ...investmentPreferences, style })}
-                        className={`px-4 py-2 rounded-lg ${
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium ${
                           investmentPreferences.style === style
-                            ? 'bg-primary-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary-50 border-primary-600 text-primary-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
                         }`}
                       >
+                        {investmentPreferences.style === style && (
+                          <Check size={16} />
+                        )}
                         {style}
                       </button>
                     ))}
@@ -369,7 +424,7 @@ export default function Settings() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">关注行业</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">关注行业</label>
                   <div className="flex flex-wrap gap-2">
                     {['科技', '消费', '金融', '医疗', '新能源', '半导体', '地产'].map((industry) => (
                       <button
@@ -379,20 +434,23 @@ export default function Settings() {
                             setInvestmentPreferences({
                               ...investmentPreferences,
                               industries: investmentPreferences.industries.filter(i => i !== industry)
-                            })
+                            });
                           } else {
                             setInvestmentPreferences({
                               ...investmentPreferences,
                               industries: [...investmentPreferences.industries, industry]
-                            })
+                            });
                           }
                         }}
-                        className={`px-4 py-2 rounded-lg ${
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium ${
                           investmentPreferences.industries.includes(industry)
-                            ? 'bg-primary-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-primary-50 border-primary-600 text-primary-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
                         }`}
                       >
+                        {investmentPreferences.industries.includes(industry) && (
+                          <Check size={16} />
+                        )}
                         {industry}
                       </button>
                     ))}
@@ -416,5 +474,5 @@ export default function Settings() {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};

@@ -386,9 +386,9 @@ export default function AdminDashboard() {
                   <input
                     type="text"
                     placeholder="搜索用户..."
-                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
                   />
-                  <select className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                  <select className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm">
                     <option>全部状态</option>
                     <option>正常</option>
                     <option>禁言</option>
@@ -396,8 +396,92 @@ export default function AdminDashboard() {
                   </select>
                 </div>
               </div>
-              <div className="text-center py-8 text-gray-500">
-                用户列表加载中...
+              <div className="divide-y divide-gray-100">
+                {[
+                  { id: 1, name: '价值猎人', level: 'Lv.5', posts: 128, followers: 1234, status: 'normal', isVerified: true, isProfessional: true },
+                  { id: 2, name: '技术派', level: 'Lv.3', posts: 56, followers: 234, status: 'normal', isVerified: false, isProfessional: false },
+                  { id: 3, name: '趋势跟踪', level: 'Lv.4', posts: 89, followers: 567, status: 'muted', isVerified: true, isProfessional: false },
+                  { id: 4, name: '量化达人', level: 'Lv.4', posts: 67, followers: 445, status: 'normal', isVerified: false, isProfessional: true },
+                  { id: 5, name: '基金达人', level: 'Lv.3', posts: 45, followers: 189, status: 'banned', isVerified: false, isProfessional: false }
+                ].map((user) => (
+                  <div key={user.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">👤</div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium text-gray-900">{user.name}</span>
+                            {user.isVerified && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                <Shield className="h-3 w-3 mr-0.5" />
+                                实名
+                              </span>
+                            )}
+                            {user.isProfessional && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <Award className="h-3 w-3 mr-0.5" />
+                                加V
+                              </span>
+                            )}
+                            {user.status === 'muted' && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                                禁言
+                              </span>
+                            )}
+                            {user.status === 'banned' && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                封禁
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center space-x-3 text-xs text-gray-500 mt-1">
+                            <span>{user.level}</span>
+                            <span>{user.posts} 帖子</span>
+                            <span>{user.followers} 粉丝</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">
+                          查看
+                        </button>
+                        {user.status === 'normal' && (
+                          <>
+                            <button className="px-3 py-1 border border-orange-300 text-orange-600 rounded text-sm hover:bg-orange-50">
+                              禁言
+                            </button>
+                            <button className="px-3 py-1 border border-red-300 text-red-600 rounded text-sm hover:bg-red-50">
+                              封禁
+                            </button>
+                          </>
+                        )}
+                        {user.status === 'muted' && (
+                          <button className="px-3 py-1 border border-green-300 text-green-600 rounded text-sm hover:bg-green-50">
+                            解禁
+                          </button>
+                        )}
+                        {user.status === 'banned' && (
+                          <button className="px-3 py-1 border border-green-300 text-green-600 rounded text-sm hover:bg-green-50">
+                            解封
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Pagination */}
+              <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                <div className="text-sm text-gray-500">显示 1-5 共 12,500 条</div>
+                <div className="flex space-x-2">
+                  <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50" disabled>
+                    上一页
+                  </button>
+                  <button className="px-3 py-1 bg-primary-600 text-white rounded text-sm">1</button>
+                  <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">2</button>
+                  <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">3</button>
+                  <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">下一页</button>
+                </div>
               </div>
             </div>
           </div>

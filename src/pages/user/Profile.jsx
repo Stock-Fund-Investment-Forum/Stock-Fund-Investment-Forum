@@ -1,10 +1,10 @@
-import { useParams, Link } from 'react-router-dom'
-import { useState } from 'react'
-import { Award, Calendar, MapPin, Link as LinkIcon, Edit, MessageSquare, ThumbsUp, Star, Trophy, Shield, Settings } from 'lucide-react'
+import { useParams, Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Award, Eye, Clock, Calendar, MapPin, Link as LinkIcon, MessageSquare, ThumbsUp, Star, Trophy, Shield } from 'lucide-react';
 
 export default function Profile() {
-  const { userId } = useParams()
-  const [activeTab, setActiveTab] = useState('posts')
+  const { userId } = useParams();
+  const [activeTab, setActiveTab] = useState('posts');
 
   const user = {
     id: userId,
@@ -37,7 +37,7 @@ export default function Profile() {
       style: '成长型',
       industries: ['科技', '消费']
     }
-  }
+  };
 
   const posts = [
     {
@@ -70,7 +70,7 @@ export default function Profile() {
       comments: 45,
       isEssence: false
     }
-  ]
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -78,7 +78,6 @@ export default function Profile() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
         {/* Cover Image */}
         <div className="h-48 bg-gradient-to-r from-primary-500 to-purple-600 rounded-t-xl"></div>
-        
         <div className="px-6 pb-6">
           <div className="flex items-start justify-between -mt-12">
             <div className="flex items-end space-x-4">
@@ -189,10 +188,9 @@ export default function Profile() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-6 py-4 font-medium ${
-                activeTab === tab.id
-                  ? 'text-primary-600 border-b-2 border-primary-600'
-                  : 'text-gray-500 hover:text-gray-700'
+              className={`flex items-center space-x-2 px-6 py-4 font-medium ${activeTab === tab.id
+                ? 'text-primary-600 border-b-2 border-primary-600'
+                : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               <tab.icon className="h-5 w-5" />
@@ -240,8 +238,7 @@ export default function Profile() {
             {user.achievements.map((achievement) => (
               <div
                 key={achievement.id}
-                className={`p-4 rounded-lg text-center ${
-                  achievement.obtained ? 'bg-yellow-50 border-2 border-yellow-200' : 'bg-gray-50 border-2 border-gray-200 opacity-50'
+                className={`p-4 rounded-lg text-center ${achievement.obtained ? 'bg-yellow-50 border-2 border-yellow-200' : 'bg-gray-50 border-2 border-gray-200 opacity-50'
                 }`}
               >
                 <div className="text-4xl mb-2">{achievement.icon}</div>
@@ -252,7 +249,6 @@ export default function Profile() {
               </div>
             ))}
           </div>
-          
           <div className="mt-6 p-4 bg-blue-50 rounded-lg">
             <h4 className="font-semibold text-gray-900 mb-2">影响力值计算规则</h4>
             <ul className="text-sm text-gray-600 space-y-1">
@@ -266,22 +262,192 @@ export default function Profile() {
       )}
 
       {activeTab === 'comments' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <p className="text-gray-500 text-center py-8">评论内容加载中...</p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="divide-y divide-gray-100">
+            {[
+              {
+                id: 1,
+                postTitle: '贵州茅台2024年报深度解读',
+                postAuthor: '白酒研究员',
+                content: '分析很到位，茅台的护城河确实深。不过当前估值不算便宜，需要等待更好的入场时机。',
+                time: '2小时前',
+                likes: 45
+              },
+              {
+                id: 2,
+                postTitle: '新能源板块轮动策略分享',
+                postAuthor: '趋势跟踪',
+                content: '这个策略很有参考价值，我会尝试应用到我的投资组合中。',
+                time: '1天前',
+                likes: 23
+              },
+              {
+                id: 3,
+                postTitle: '量化交易策略：双均线系统回测报告',
+                postAuthor: '量化达人',
+                content: '回测数据很详细，建议加入止损参数的测试。',
+                time: '3天前',
+                likes: 18
+              }
+            ].map((comment) => (
+              <div key={comment.id} className="p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Link to={`/post/${comment.id}`} className="text-sm text-primary-600 hover:text-primary-700">
+                        {comment.postTitle}
+                      </Link>
+                      <span className="text-xs text-gray-400">·</span>
+                      <span className="text-xs text-gray-500">{comment.postAuthor}</span>
+                    </div>
+                    <p className="text-gray-700 mb-2">{comment.content}</p>
+                    <div className="flex items-center space-x-4 text-sm text-gray-500">
+                      <span className="flex items-center">
+                        <ThumbsUp className="h-4 w-4 mr-1" />
+                        {comment.likes}
+                      </span>
+                      <span className="flex items-center">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {comment.time}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       {activeTab === 'likes' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <p className="text-gray-500 text-center py-8">点赞内容加载中...</p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="divide-y divide-gray-100">
+            {[
+              {
+                id: 1,
+                title: '贵州茅台2024年报深度解读',
+                author: '白酒研究员',
+                section: 'A股讨论',
+                time: '2小时前',
+                likes: 892,
+                comments: 156
+              },
+              {
+                id: 2,
+                title: '新能源板块轮动策略分享',
+                author: '趋势跟踪',
+                section: 'A股讨论',
+                time: '1天前',
+                likes: 423,
+                comments: 67
+              },
+              {
+                id: 3,
+                title: '量化交易策略：双均线系统回测报告',
+                author: '量化达人',
+                section: '量化投资专区',
+                time: '3天前',
+                likes: 234,
+                comments: 45
+              }
+            ].map((post) => (
+              <Link key={post.id} to={`/post/${post.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-sm text-primary-600">{post.section}</span>
+                      <span className="text-xs text-gray-400">·</span>
+                      <span className="text-xs text-gray-500">{post.author}</span>
+                    </div>
+                    <h3 className="text-base font-medium text-gray-900 hover:text-primary-600">{post.title}</h3>
+                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                      <span className="flex items-center">
+                        <ThumbsUp className="h-4 w-4 mr-1" />
+                        {post.likes}
+                      </span>
+                      <span className="flex items-center">
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        {post.comments}
+                      </span>
+                      <span className="flex items-center">
+                        <Clock className="h-4 w-4 mr-1" />
+                        {post.time}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
 
       {activeTab === 'favorites' && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <p className="text-gray-500 text-center py-8">收藏内容加载中...</p>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+          <div className="divide-y divide-gray-100">
+            {[
+              {
+                id: 1,
+                title: '贵州茅台2024年报深度解读：业绩超预期',
+                author: '白酒研究员',
+                section: 'A股讨论',
+                time: '2小时前',
+                views: 12345,
+                tags: ['贵州茅台', '财报解读']
+              },
+              {
+                id: 2,
+                title: '2024年新能源行业投资策略深度解析',
+                author: '行业分析师',
+                section: 'A股讨论',
+                time: '1天前',
+                views: 8923,
+                tags: ['新能源', '行业分析']
+              },
+              {
+                id: 3,
+                title: '价值投资实践：如何选择优质股票',
+                author: '价值投资者',
+                section: '价值投资专区',
+                time: '3天前',
+                views: 5678,
+                tags: ['价值投资', '选股策略']
+              }
+            ].map((post) => (
+              <Link key={post.id} to={`/post/${post.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-sm text-primary-600">{post.section}</span>
+                      <span className="text-xs text-gray-400">·</span>
+                      <span className="text-xs text-gray-500">{post.author}</span>
+                      <span className="text-xs text-gray-400">·</span>
+                      <span className="text-xs text-gray-500">{post.time}</span>
+                    </div>
+                    <h3 className="text-base font-medium text-gray-900 hover:text-primary-600 mb-2">{post.title}</h3>
+                    <div className="flex items-center space-x-2">
+                      {post.tags.map((tag) => (
+                        <span key={tag} className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                      <span className="flex items-center">
+                        <Eye className="h-4 w-4 mr-1" />
+                        {post.views}
+                      </span>
+                    </div>
+                  </div>
+                  <button className="text-yellow-500 hover:text-yellow-600">
+                    <Star className="h-5 w-5 fill-current" />
+                  </button>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </div>
-  )
+  );
 }
