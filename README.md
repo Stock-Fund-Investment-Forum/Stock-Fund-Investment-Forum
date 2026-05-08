@@ -1,4 +1,4 @@
-# Stock Fund Investment Forum - 股基论坛平台
+# Stock Fund Investment Forum --backend
 
 ## 📋 项目简介
 
