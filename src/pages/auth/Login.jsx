@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { User, Lock, ArrowRight, ArrowLeft } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 export default function Login() {
   const [loginMethod, setLoginMethod] = useState('phone') // 'phone' or 'email'
+  const [error, setError] = useState('')
   const [formData, setFormData] = useState({
     phone: '',
     email: '',
     password: '',
     code: ''
   })
+  const { login, isLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from || '/'
@@ -22,19 +25,30 @@ export default function Login() {
     }, 0)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // TODO: Implement login logic
-    console.log('Login submitted:', formData)
-    navigate(from)
-    setTimeout(() => {
-      window.scrollTo(0, scrollY)
-    }, 0)
+    setError('')
+
+    const identifier = loginMethod === 'phone' ? formData.phone.trim() : formData.email.trim()
+
+    if (!identifier || !formData.password) {
+      setError('请先填写账号和密码')
+      return
+    }
+
+    try {
+      await login(identifier, formData.password)
+      navigate(from)
+      setTimeout(() => {
+        window.scrollTo(0, scrollY)
+      }, 0)
+    } catch (err) {
+      setError(err.message || '登录失败，请重试')
+    }
   }
 
   const handleWechatLogin = () => {
-    // TODO: Implement WeChat login (UC-REG-002)
-    console.log('WeChat login initiated')
+    setError('微信登录暂未接入，当前保留入口')
   }
 
   return (
@@ -77,6 +91,12 @@ export default function Login() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           {loginMethod === 'phone' ? (
             <div className="space-y-4">
               <div>
@@ -189,12 +209,13 @@ export default function Login() {
 
           <button
             type="submit"
+            disabled={isLoading}
             className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
           >
             <span className="absolute left-0 inset-y-0 flex items-center pl-3">
               <ArrowRight className="h-5 w-5 text-primary-300 group-hover:text-primary-200" />
             </span>
-            登录
+            {isLoading ? '登录中...' : '登录'}
           </button>
 
           {/* Third-party Login */}

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { User, Lock, Mail, ArrowRight, Shield, ArrowLeft } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -10,12 +11,23 @@ export default function Register() {
     confirmPassword: '',
     agreeTerms: false
   })
+  const [error, setError] = useState('')
   const [codeSent, setCodeSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const timerRef = useRef(null)
+  const { register, isLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from || '/'
   const scrollY = location.state?.scrollY || 0
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [])
 
   const handleBack = () => {
     navigate(from)
@@ -25,17 +37,26 @@ export default function Register() {
   }
 
   const handleSendCode = () => {
-    if (!formData.phone) {
-      alert('请先输入手机号')
+    setError('')
+
+    if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
+      setError('请输入有效的手机号码')
       return
     }
-    // TODO: Implement send verification code logic (UC-REG-001)
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
+
     setCodeSent(true)
     setCountdown(60)
-    const timer = setInterval(() => {
+    timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          clearInterval(timer)
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+          }
           return 0
         }
         return prev - 1
@@ -43,30 +64,46 @@ export default function Register() {
     }, 1000)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    
+
+    setError('')
+
+    if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
+      setError('请输入有效的手机号码')
+      return
+    }
+
+    if (!codeSent || !/^[0-9]{6}$/.test(formData.code.trim())) {
+      setError('请先获取并填写 6 位验证码')
+      return
+    }
+
     if (!formData.agreeTerms) {
-      alert('请先同意用户协议和隐私政策')
+      setError('请先同意用户协议和隐私政策')
       return
     }
 
     if (formData.password !== formData.confirmPassword) {
-      alert('两次输入的密码不一致')
+      setError('两次输入的密码不一致')
       return
     }
 
     if (formData.password.length < 8 || formData.password.length > 20) {
-      alert('密码长度应为8-20位')
+      setError('密码长度应为8-20位')
       return
     }
 
-    // TODO: Implement registration logic (UC-REG-001)
-    console.log('Registration submitted:', formData)
-    navigate(from)
-    setTimeout(() => {
-      window.scrollTo(0, scrollY)
-    }, 0)
+    try {
+      const username = `用户${formData.phone.slice(-4)}`
+      await register(formData.phone.trim(), formData.password, username)
+      navigate(from)
+      setTimeout(() => {
+        window.scrollTo(0, scrollY)
+      }, 0)
+    } catch (err) {
+      setError(err.message || '注册失败，请重试')
+    }
   }
 
   return (
@@ -85,6 +122,12 @@ export default function Register() {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
@@ -210,12 +253,13 @@ export default function Register() {
 
           <button
             type="submit"
+            disabled={isLoading}
             className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
           >
             <span className="absolute left-0 inset-y-0 flex items-center pl-3">
               <ArrowRight className="h-5 w-5 text-primary-300 group-hover:text-primary-200" />
             </span>
-            完成注册
+            {isLoading ? '注册中...' : '完成注册'}
           </button>
 
           <div className="text-center">

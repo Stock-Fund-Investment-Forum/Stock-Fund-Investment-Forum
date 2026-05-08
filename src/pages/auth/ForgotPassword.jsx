@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Mail, ArrowLeft, ArrowRight, Shield } from 'lucide-react'
 
@@ -10,12 +10,22 @@ export default function ForgotPassword() {
     newPassword: '',
     confirmPassword: ''
   })
+  const [error, setError] = useState('')
   const [codeSent, setCodeSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const timerRef = useRef(null)
   const navigate = useNavigate()
   const location = useLocation()
   const from = location.state?.from || '/'
   const scrollY = location.state?.scrollY || 0
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [])
 
   const handleBack = () => {
     navigate(from)
@@ -25,46 +35,70 @@ export default function ForgotPassword() {
   }
 
   const handleSendCode = () => {
-    if (!formData.email) {
-      alert('请先输入邮箱')
-      return
+    setError('')
+
+    if (!formData.email.trim()) {
+      setError('请先输入邮箱')
+      return false
     }
-    // TODO: Implement send verification code logic
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
+
     setCodeSent(true)
     setCountdown(60)
-    const timer = setInterval(() => {
+    timerRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          clearInterval(timer)
+          if (timerRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+          }
           return 0
         }
         return prev - 1
       })
     }, 1000)
+
+    return true
   }
 
   const handleVerifyCode = (e) => {
     e.preventDefault()
-    // TODO: Implement code verification logic
+
+    setError('')
+
+    if (!codeSent) {
+      setError('请先发送验证码')
+      return
+    }
+
+    if (!/^[0-9]{6}$/.test(formData.code.trim())) {
+      setError('请输入 6 位验证码')
+      return
+    }
+
     setStep(3)
   }
 
   const handleResetPassword = (e) => {
     e.preventDefault()
-    
+
+    setError('')
+
     if (formData.newPassword !== formData.confirmPassword) {
-      alert('两次输入的密码不一致')
+      setError('两次输入的密码不一致')
       return
     }
 
     if (formData.newPassword.length < 8) {
-      alert('密码长度不能少于8位')
+      setError('密码长度不能少于8位')
       return
     }
 
-    // TODO: Implement password reset logic
     alert('密码重置成功，请使用新密码登录')
-    window.location.href = '/login'
+    navigate('/login', { replace: true })
   }
 
   return (
@@ -90,8 +124,14 @@ export default function ForgotPassword() {
           </p>
         </div>
 
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         {step === 1 && (
-          <form className="mt-8 space-y-6" onSubmit={(e) => { e.preventDefault(); setStep(2); }}>
+          <form className="mt-8 space-y-6" onSubmit={(e) => { e.preventDefault(); if (handleSendCode()) setStep(2); }}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 注册邮箱
