@@ -1,7 +1,7 @@
 /**
  * HTTP request utility
  */
-import { API_BASE_URL, HTTP_STATUS, REQUEST_TIMEOUT } from '../constants/api';
+import { API_BASE_URL, REQUEST_TIMEOUT } from '../constants/api';
 
 class ApiError extends Error {
   constructor(message, status, data) {

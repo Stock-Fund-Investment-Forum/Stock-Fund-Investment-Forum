@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import '../styles/HomePage.css';
 
 export default function HomePage() {
-  const { user } = useAuth();
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState('recommend');
 

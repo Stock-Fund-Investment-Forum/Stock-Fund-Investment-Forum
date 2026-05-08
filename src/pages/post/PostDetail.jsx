@@ -1,6 +1,6 @@
 import { useParams, Link } from 'react-router-dom'
 import { useState } from 'react'
-import { ThumbsUp, MessageSquare, Share2, Bookmark, Eye, Clock, User, Send, MoreHorizontal, Award } from 'lucide-react'
+import { ThumbsUp, MessageSquare, Share2, Bookmark, Eye, Clock, Send, MoreHorizontal, Award } from 'lucide-react'
 
 export default function PostDetail() {
   const { postId } = useParams()

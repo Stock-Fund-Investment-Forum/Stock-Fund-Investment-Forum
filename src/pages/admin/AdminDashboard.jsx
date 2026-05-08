@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, MessageSquare, Users, Shield, AlertTriangle, CheckCircle, XCircle, Eye, Ban, Clock, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Users, Shield, AlertTriangle, CheckCircle, XCircle, Eye, Ban, TrendingUp, Award } from 'lucide-react'
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview')

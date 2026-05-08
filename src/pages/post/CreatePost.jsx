@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bold, Italic, List, Link as LinkIcon, Image, Paperclip, Eye, Send, X } from 'lucide-react'
+import { Bold, Italic, List, Link as LinkIcon, Image, Eye, Send, X } from 'lucide-react'
 
 export default function CreatePost() {
   const navigate = useNavigate()
@@ -11,7 +11,6 @@ export default function CreatePost() {
   const [tags, setTags] = useState([])
   const [tagInput, setTagInput] = useState('')
   const [images, setImages] = useState([])
-  const [attachments, setAttachments] = useState([])
   const [showPreview, setShowPreview] = useState(false)
   
   const sections = [
@@ -47,13 +46,6 @@ export default function CreatePost() {
 
   const handleRemoveImage = (imageId) => {
     setImages(images.filter(img => img.id !== imageId))
-  }
-
-  const handleAttachmentUpload = (e) => {
-    const files = Array.from(e.target.files)
-    files.forEach(file => {
-      setAttachments([...attachments, { id: Date.now(), name: file.name, size: file.size }])
-    })
   }
 
   const handleSubmit = () => {

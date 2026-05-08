@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Send, Search, MoreHorizontal, UserPlus, Bell, Check } from 'lucide-react'
+import { Send, Search, MoreHorizontal, UserPlus, Check } from 'lucide-react'
 
 export default function Messages() {
   const [activeTab, setActiveTab] = useState('private') // 'private', 'notifications'

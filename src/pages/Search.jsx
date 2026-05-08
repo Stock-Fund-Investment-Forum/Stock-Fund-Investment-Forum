@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search as SearchIcon, Filter, Clock, TrendingUp, FileText, User, TrendingDown, ChevronDown } from 'lucide-react'
+import { Search as SearchIcon, Filter, Clock, TrendingUp, FileText, User, TrendingDown } from 'lucide-react'
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams()
