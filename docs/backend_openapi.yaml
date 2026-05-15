@@ -1,0 +1,934 @@
+openapi: 3.0.3
+info:
+  title: Stock & Fund Investment Forum API
+  version: 1.0.0
+  description: |
+    后端 RESTful API 文档（OpenAPI 3.0）。
+    本模板基于项目的数据库设计与架构文档，为前后端分离提供接口规范起点。
+    按需扩展每个路径的字段、验证规则、错误码与示例。
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+tags:
+  - name: auth
+    description: 认证与登录
+  - name: users
+    description: 用户管理
+  - name: posts
+    description: 帖子管理
+  - name: comments
+    description: 评论管理
+  - name: boards
+    description: 板块
+  - name: tags
+    description: 标签
+  - name: polls
+    description: 投票
+  - name: attachments
+    description: 附件
+  - name: messages
+    description: 私信
+  - name: notifications
+    description: 通知
+  - name: groups
+    description: 群组
+  - name: stocks
+    description: 股票/基金信息
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: Invalid request
+    User:
+      type: object
+      properties:
+        user_id:
+          type: string
+          example: user-123e4567-e89b-12d3-a456-426614174000
+        nickname:
+          type: string
+          example: Alice
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        phone:
+          type: string
+          example: '+8613912345678'
+        avatar:
+          type: string
+          format: uri
+        bio:
+          type: string
+        auth_level:
+          type: string
+          enum: [UNVERIFIED, EMAIL_VERIFIED, PHONE_VERIFIED, REAL_NAME_VERIFIED, EXPERT]
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, SUSPENDED, BANNED]
+        level:
+          type: integer
+          example: 1
+        points:
+          type: integer
+          example: 120
+        influence_value:
+          type: number
+          format: float
+          example: 45.50
+        is_deleted:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [user_id, nickname, email]
+    UserCreateRequest:
+      type: object
+      properties:
+        nickname:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        password:
+          type: string
+      required: [nickname, email, password]
+    AuthRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        password:
+          type: string
+      required: [password]
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          example: 3600
+    Post:
+      type: object
+      properties:
+        post_id:
+          type: string
+        user_id:
+          type: string
+        board_id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        post_type:
+          type: string
+          enum: [QUESTION, DISCUSSION, ANALYSIS, NEWS, GUIDE]
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED, DELETED]
+        audit_status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED, FLAGGED]
+        view_count:
+          type: integer
+        like_count:
+          type: integer
+        comment_count:
+          type: integer
+        is_essence:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required: [post_id, user_id, title, content]
+    PostCreateRequest:
+      type: object
+      properties:
+        board_id:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        post_type:
+          type: string
+          enum: [QUESTION, DISCUSSION, ANALYSIS, NEWS, GUIDE]
+      required: [board_id, title, content]
+    Comment:
+      type: object
+      properties:
+        comment_id:
+          type: string
+        post_id:
+          type: string
+        parent_comment_id:
+          type: string
+        user_id:
+          type: string
+        content:
+          type: string
+        audit_status:
+          type: string
+        like_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+      required: [comment_id, post_id, user_id, content]
+    Board:
+      type: object
+      properties:
+        board_id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        description:
+          type: string
+        post_count:
+          type: integer
+        member_count:
+          type: integer
+        is_active:
+          type: boolean
+      required: [board_id, name]
+    Tag:
+      type: object
+      properties:
+        tag_id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+        usage_count:
+          type: integer
+        is_hot:
+          type: boolean
+      required: [tag_id, name]
+    Poll:
+      type: object
+      properties:
+        poll_id:
+          type: string
+        post_id:
+          type: string
+        question:
+          type: string
+        total_votes:
+          type: integer
+        status:
+          type: string
+        allow_multiple:
+          type: boolean
+        end_time:
+          type: string
+          format: date-time
+    Attachment:
+      type: object
+      properties:
+        attachment_id:
+          type: string
+        post_id:
+          type: string
+        user_id:
+          type: string
+        filename:
+          type: string
+        file_path:
+          type: string
+        file_type:
+          type: string
+        file_size:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+    Message:
+      type: object
+      properties:
+        message_id:
+          type: string
+        sender_id:
+          type: string
+        recipient_id:
+          type: string
+        content:
+          type: string
+        is_read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+  parameters:
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 用户ID
+    postId:
+      name: postId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 帖子ID
+    commentId:
+      name: commentId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: 评论ID
+paths:
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: 用户注册
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: 请求错误
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: 登录，返回 JWT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /users:
+    get:
+      tags: [users]
+      summary: 查询用户列表（分页、过滤）
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 用户列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+    post:
+      tags: [users]
+      summary: 创建用户（管理员或注册）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+  /users/{userId}:
+    get:
+      tags: [users]
+      summary: 获取单个用户
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: 用户信息
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: 未找到
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags: [users]
+      summary: 更新用户资料（需鉴权）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                avatar:
+                  type: string
+                bio:
+                  type: string
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: 未授权
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags: [users]
+      summary: 软删除用户（需鉴权/管理员）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '204':
+          description: 删除成功
+  /boards:
+    get:
+      tags: [boards]
+      summary: 查询板块列表
+      responses:
+        '200':
+          description: 列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Board'
+    post:
+      tags: [boards]
+      summary: 创建板块（管理员）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                category:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: 创建成功
+  /boards/{boardId}/posts:
+    get:
+      tags: [boards, posts]
+      summary: 获取某板块的帖子列表
+      parameters:
+        - name: boardId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 帖子列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+  /posts:
+    get:
+      tags: [posts]
+      summary: 帖子搜索/列表（支持过滤、排序）
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: 关键字
+        - name: tag
+          in: query
+          schema:
+            type: string
+        - name: board_id
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Post'
+    post:
+      tags: [posts]
+      summary: 创建帖子（需鉴权）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PostCreateRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+  /posts/{postId}:
+    get:
+      tags: [posts]
+      summary: 获取帖子详情
+      parameters:
+        - $ref: '#/components/parameters/postId'
+      responses:
+        '200':
+          description: 帖子
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+        '404':
+          description: 未找到
+    put:
+      tags: [posts]
+      summary: 更新帖子（作者或管理员）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/postId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                status:
+                  type: string
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [posts]
+      summary: 软删除帖子（作者或管理员）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/postId'
+      responses:
+        '204':
+          description: 删除成功
+  /posts/{postId}/comments:
+    get:
+      tags: [comments]
+      summary: 获取帖子下评论列表
+      parameters:
+        - $ref: '#/components/parameters/postId'
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 评论列表
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Comment'
+    post:
+      tags: [comments]
+      summary: 在帖子下发布评论（需鉴权）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/postId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_comment_id:
+                  type: string
+                content:
+                  type: string
+              required: [content]
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+  /comments/{commentId}:
+    get:
+      tags: [comments]
+      summary: 获取评论
+      parameters:
+        - $ref: '#/components/parameters/commentId'
+      responses:
+        '200':
+          description: 评论
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Comment'
+    put:
+      tags: [comments]
+      summary: 更新评论（作者）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/commentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      tags: [comments]
+      summary: 删除评论（作者或管理员）
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/commentId'
+      responses:
+        '204':
+          description: 删除成功
+  /tags:
+    get:
+      tags: [tags]
+      summary: 标签列表或搜索
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 标签数组
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tag'
+  /polls:
+    post:
+      tags: [polls]
+      summary: 在帖子中创建投票（需鉴权）
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Poll'
+      responses:
+        '201':
+          description: 已创建
+  /polls/{pollId}/vote:
+    post:
+      tags: [polls]
+      summary: 投票（需鉴权）
+      security:
+        - bearerAuth: []
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                option_id:
+                  type: string
+      responses:
+        '200':
+          description: 投票成功
+  /attachments:
+    post:
+      tags: [attachments]
+      summary: 上传附件（multipart/form-data，需鉴权）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                post_id:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: 上传成功
+  /messages:
+    post:
+      tags: [messages]
+      summary: 发送私信（需鉴权）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                recipient_id:
+                  type: string
+                content:
+                  type: string
+              required: [recipient_id, content]
+      responses:
+        '201':
+          description: 发送成功
+    get:
+      tags: [messages]
+      summary: 获取当前用户的会话列表（需鉴权）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 会话列表
+  /notifications:
+    get:
+      tags: [notifications]
+      summary: 获取当前用户通知（需鉴权）
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: is_read
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 通知列表
+  /groups:
+    get:
+      tags: [groups]
+      summary: 群组列表
+      responses:
+        '200':
+          description: 列表
+    post:
+      tags: [groups]
+      summary: 创建群组（需鉴权）
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                access_level:
+                  type: string
+      responses:
+        '201':
+          description: 创建成功
+  /stocks:
+    get:
+      tags: [stocks]
+      summary: 股票/基金信息查询
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: symbol
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 列表
+  /health:
+    get:
+      summary: 服务健康检查
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+security:
+  - bearerAuth: []
+
+# 说明：
+# - 该 YAML 是模板，需根据实际后端实现补充请求/响应字段、验证规则、错误码、分页和排序参数等。
+# - 可导入到 Swagger UI / Redoc 或其他支持 OpenAPI 3 的工具进行浏览与测试。
