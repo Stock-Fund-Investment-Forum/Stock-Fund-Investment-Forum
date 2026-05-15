@@ -48,7 +48,7 @@ export default function PostDetail() {
     section: 'A股讨论'
   }
 
-  const comments = [
+  const initialComments = [
     {
       id: 1,
       author: { name: '技术派', avatar: '👤', level: 'Lv.3' },
@@ -93,6 +93,40 @@ export default function PostDetail() {
     }
   ]
 
+  const [comments, setComments] = useState(initialComments)
+
+  const countComments = (items) => items.reduce(
+    (total, item) => total + 1 + (item.replies ? countComments(item.replies) : 0),
+    0
+  )
+
+  const totalComments = countComments(comments)
+
+  const findCommentAuthor = (items, targetId) => {
+    for (const item of items) {
+      if (item.id === targetId) {
+        return item.author?.name || '用户'
+      }
+      if (item.replies?.length) {
+        const nested = findCommentAuthor(item.replies, targetId)
+        if (nested) {
+          return nested
+        }
+      }
+    }
+    return null
+  }
+
+  const addReplyToComments = (items, targetId, reply) => items.map((item) => {
+    if (item.id === targetId) {
+      return { ...item, replies: [...(item.replies || []), reply] }
+    }
+    if (item.replies?.length) {
+      return { ...item, replies: addReplyToComments(item.replies, targetId, reply) }
+    }
+    return item
+  })
+
   const handleLike = () => {
     setLiked(!liked)
   }
@@ -106,9 +140,25 @@ export default function PostDetail() {
   }
 
   const handleSubmitComment = () => {
-    if (!commentText.trim()) return
-    // TODO: Submit comment
-    console.warn('Submitting comment:', { text: commentText, replyTo: replyingTo })
+    const trimmed = commentText.trim()
+    if (!trimmed) return
+
+    const replyTarget = replyingTo ? findCommentAuthor(comments, replyingTo) : null
+    const newComment = {
+      id: Date.now(),
+      author: { name: '我', avatar: '👤', level: 'Lv.1' },
+      content: replyTarget ? `@${replyTarget} ${trimmed}` : trimmed,
+      time: '刚刚',
+      likes: 0,
+      replies: []
+    }
+
+    setComments((prev) => (
+      replyingTo
+        ? addReplyToComments(prev, replyingTo, newComment)
+        : [newComment, ...prev]
+    ))
+
     setCommentText('')
     setReplyingTo(null)
   }
@@ -277,7 +327,7 @@ export default function PostDetail() {
                 </button>
                 <button className="flex items-center space-x-2 text-gray-500 hover:text-primary-600">
                   <MessageSquare className="h-5 w-5" />
-                  <span>{post.comments}</span>
+                  <span>{totalComments}</span>
                 </button>
                 <button className="flex items-center space-x-2 text-gray-500 hover:text-primary-600">
                   <Share2 className="h-5 w-5" />
@@ -300,7 +350,7 @@ export default function PostDetail() {
           {/* Comments Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">评论 ({post.comments})</h2>
+              <h2 className="text-lg font-semibold">评论 ({totalComments})</h2>
             </div>
 
             {/* Comment Input */}
