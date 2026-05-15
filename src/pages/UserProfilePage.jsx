@@ -1,66 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { usersService, postsService } from '../services';
+import { Loader } from 'lucide-react';
 import '../styles/UserProfile.css';
 
 export default function UserProfilePage() {
-  const { user } = useAuth();
+  const { userId } = useParams();
+  const { user: currentUser } = useAuth();
+  const [profileUser, setProfileUser] = useState(null);
+  const [userPosts, setUserPosts] = useState([]);
   const [activeTab, setActiveTab] = useState('posts');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const profileUser = {
-    id: user?.id,
-    username: user?.username || 'visitor',
-    avatar: user?.avatar,
-    level: 4,
-    points: 8520,
-    followers: 1250,
-    following: 380,
-    bio: '价值投资践行者，关注长期收益。6年投资经验，专注于消费和科技领域',
-    isVerified: true,
-    verifiedType: 'analyst', // analyst, professional, media
-    joinDate: '2018年3月',
-    stats: {
-      posts: 156,
-      comments: 2345,
-      likes: 5678,
-      collections: 890,
-    },
-    achievements: [
-      { name: '新手上路', icon: '🎯' },
-      { name: '精华达人', icon: '✨' },
-      { name: '影响力之星', icon: '⭐' },
-      { name: '十日签到', icon: '🔥' },
-    ],
-  };
+  // 加载用户资料和帖子
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const userPosts = [
-    {
-      id: '1',
-      title: '宁德时代今日走势分析',
-      timestamp: '2024-05-07',
-      comments: 45,
-      likes: 120,
-      isEssence: true,
-    },
-    {
-      id: '2',
-      title: '2024年新能源行业投资策略',
-      timestamp: '2024-05-06',
-      comments: 78,
-      likes: 320,
-      isEssence: true,
-    },
-  ];
+        const targetUserId = userId || currentUser?.id;
+        if (!targetUserId) {
+          throw new Error('用户不存在');
+        }
 
-  const getVerifiedBadge = (type) => {
+        // 并行获取用户信息和帖子
+        const [userRes, postsRes] = await Promise.all([
+          usersService.getUser(targetUserId),
+          postsService.getPosts({ user_id: targetUserId, page: 1, per_page: 20 })
+        ]);
+
+        setProfileUser(userRes);
+        setUserPosts(postsRes.items || postsRes || []);
+      } catch (err) {
+        console.error('Failed to fetch user data:', err);
+        setError(err.message || '加载数据失败');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchUserData();
+  }, [userId, currentUser?.id]);
+
+  const getVerifiedBadge = (authLevel) => {
     const badges = {
-      analyst: { text: '分析师', color: '#FFD700' },
-      professional: { text: '专业认证', color: '#4169E1' },
-      media: { text: '媒体人', color: '#FF6347' },
+      'EXPERT': { text: '专家', color: '#FFD700' },
+      'PROFESSIONAL': { text: '专业认证', color: '#4169E1' },
+      'MEDIA': { text: '媒体人', color: '#FF6347' },
+      'USER': { text: '普通用户', color: '#999' },
     };
-    return badges[type];
+    return badges[authLevel] || badges['USER'];
   };
 
-  const badge = getVerifiedBadge(profileUser.verifiedType);
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <Loader className="h-8 w-8 animate-spin text-primary-600" />
+          <p className="mt-2 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !profileUser) {
+    return (
+      <div className="user-profile-container">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700">加载失败: {error || '用户不存在'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const badge = getVerifiedBadge(profileUser.auth_level);
 
   return (
     <div className="user-profile-container">
@@ -68,25 +84,25 @@ export default function UserProfilePage() {
       <div className="profile-header">
         <div className="profile-cover" />
         <div className="profile-info">
-          <img src={profileUser.avatar} alt={profileUser.username} className="profile-avatar" />
+          <img src={profileUser.avatar} alt={profileUser.nickname} className="profile-avatar" />
           <div className="profile-details">
             <h1 className="profile-username">
-              {profileUser.username}
-              {profileUser.isVerified && (
+              {profileUser.nickname}
+              {profileUser.auth_level !== 'USER' && (
                 <span className="verified-badge" style={{ backgroundColor: badge.color }}>
                   ✓ {badge.text}
                 </span>
               )}
             </h1>
-            <p className="profile-level">Lv.{profileUser.level}</p>
-            <p className="profile-bio">{profileUser.bio}</p>
+            <p className="profile-level">Lv.{profileUser.level || 1}</p>
+            <p className="profile-bio">{profileUser.bio || '这个用户还没有介绍'}</p>
             <div className="profile-meta">
-              <span>加入于 {profileUser.joinDate}</span>
-              <span>积分 {profileUser.points}</span>
+              <span>加入于 {new Date(profileUser.created_at).toLocaleDateString()}</span>
+              <span>积分 {profileUser.points || 0}</span>
             </div>
           </div>
 
-          {user?.id === profileUser.id ? (
+          {currentUser?.id === profileUser.id ? (
             <button className="btn btn-primary">编辑资料</button>
           ) : (
             <button className="btn btn-primary">+ 关注</button>
@@ -96,19 +112,19 @@ export default function UserProfilePage() {
         {/* 统计数据 */}
         <div className="profile-stats">
           <div className="stat-item">
-            <div className="stat-number">{profileUser.followers}</div>
+            <div className="stat-number">{profileUser.followers_count || 0}</div>
             <div className="stat-label">粉丝</div>
           </div>
           <div className="stat-item">
-            <div className="stat-number">{profileUser.following}</div>
+            <div className="stat-number">{profileUser.following_count || 0}</div>
             <div className="stat-label">关注</div>
           </div>
           <div className="stat-item">
-            <div className="stat-number">{profileUser.stats.posts}</div>
+            <div className="stat-number">{userPosts.length}</div>
             <div className="stat-label">帖子</div>
           </div>
           <div className="stat-item">
-            <div className="stat-number">{profileUser.stats.likes}</div>
+            <div className="stat-number">{profileUser.posts_liked_count || 0}</div>
             <div className="stat-label">点赞</div>
           </div>
         </div>
@@ -151,15 +167,15 @@ export default function UserProfilePage() {
                 <div className="empty-state">还没有发表过帖子</div>
               ) : (
                 userPosts.map((post) => (
-                  <a key={post.id} href={`/post/${post.id}`} className="post-item">
+                  <a key={post.post_id} href={`/post/${post.post_id}`} className="post-item">
                     <div className="post-title">
                       {post.title}
-                      {post.isEssence && <span className="essence-tag">✨ 精华</span>}
+                      {post.is_essence && <span className="essence-tag">✨ 精华</span>}
                     </div>
                     <div className="post-meta">
-                      <span>{post.timestamp}</span>
-                      <span>💬 {post.comments}</span>
-                      <span>❤️ {post.likes}</span>
+                      <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                      <span>💬 {post.comment_count || 0}</span>
+                      <span>❤️ {post.like_count || 0}</span>
                     </div>
                   </a>
                 ))
@@ -172,31 +188,10 @@ export default function UserProfilePage() {
             <div className="achievements">
               <div className="achievements-header">
                 <h3>用户成就</h3>
-                <p className="achievements-desc">收集更多勋章以展示你的社区贡献</p>
+                <p className="achievements-desc">继续参与社区活动以解锁更多成就</p>
               </div>
               <div className="achievement-grid">
-                {profileUser.achievements.map((achievement, idx) => (
-                  <div key={idx} className="achievement-card unlocked">
-                    <div className="achievement-icon">{achievement.icon}</div>
-                    <div className="achievement-name">{achievement.name}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="locked-achievements">
-                <h4>未获得成就</h4>
-                <div className="achievement-grid">
-                  {[
-                    { name: '百篇作者', icon: '📚' },
-                    { name: '十年老友', icon: '⏰' },
-                    { name: '社区贡献者', icon: '🌟' },
-                  ].map((achievement, idx) => (
-                    <div key={idx} className="achievement-card locked">
-                      <div className="achievement-icon">{achievement.icon}</div>
-                      <div className="achievement-name">{achievement.name}</div>
-                      <div className="achievement-hint">?</div>
-                    </div>
-                  ))}
-                </div>
+                <div className="empty-state">暂无成就数据</div>
               </div>
             </div>
           )}

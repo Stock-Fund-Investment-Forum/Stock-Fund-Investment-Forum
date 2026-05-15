@@ -1,134 +1,55 @@
 import { useParams, Link } from 'react-router-dom'
-import { useState } from 'react'
-import { ThumbsUp, MessageSquare, Share2, Bookmark, Eye, Clock, Send, MoreHorizontal, Award } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { ThumbsUp, MessageSquare, Share2, Bookmark, Eye, Clock, Send, MoreHorizontal, Award, Loader } from 'lucide-react'
+import { postsService, commentsService } from '../../services'
 
 export default function PostDetail() {
   const { postId } = useParams()
+  const [post, setPost] = useState(null)
+  const [comments, setComments] = useState([])
   const [liked, setLiked] = useState(false)
   const [bookmarked, setBookmarked] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [commentText, setCommentText] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Mock post data
-  const post = {
-    id: postId,
-    title: '贵州茅台2024年报深度解读：业绩超预期，估值修复进行时',
-    author: {
-      id: 1,
-      name: '价值猎人',
-      avatar: '👤',
-      level: 'Lv.5',
-      isVerified: true,
-      isProfessional: true
-    },
-    content: `## 财务数据概览
+  // 加载帖子详情和评论
+  useEffect(() => {
+    const fetchPostData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
 
-贵州茅台2024年报显示，公司实现营业收入**1,234.56亿元**，同比增长**15.2%**；归属于上市公司股东的净利润**678.90亿元**，同比增长**18.5%**。
+        // 并行获取帖子和评论
+        const [postRes, commentsRes] = await Promise.all([
+          postsService.getPost(postId),
+          commentsService.getPostComments(postId, { page: 1, per_page: 50 })
+        ])
 
-### 核心亮点
-
-1. **毛利率持续提升**：2024年毛利率达到91.5%，较去年提升0.8个百分点
-2. **现金流充沛**：经营活动产生的现金流量净额为856.78亿元，同比增长22.3%
-3. **分红慷慨**：拟每10股派发现金红利259.11元（含税），分红率超过75%
-
-## 估值分析
-
-当前股价对应2024年PE约为**28倍**，处于历史中位水平。考虑到公司的护城河和稳健增长，我们认为当前估值具备一定安全边际。
-
-## 投资建议
-
-**买入评级**，目标价**2,200元**。建议长期投资者逢低布局，享受稳健增长带来的复利收益。`,
-    tags: ['贵州茅台', '财报解读', '价值投资'],
-    publishTime: '2024-03-28 14:30',
-    views: 12345,
-    likes: 892,
-    comments: 156,
-    shares: 45,
-    isEssence: true,
-    section: 'A股讨论'
-  }
-
-  const initialComments = [
-    {
-      id: 1,
-      author: { name: '技术派', avatar: '👤', level: 'Lv.3' },
-      content: '分析很到位，茅台的护城河确实深。不过当前估值不算便宜，需要等待更好的入场时机。',
-      time: '2小时前',
-      likes: 45,
-      replies: [
-        {
-          id: 11,
-          author: { name: '价值猎人', avatar: '👤', level: 'Lv.5', isProfessional: true },
-          content: '@技术派 同意，估值修复需要时间，建议分批建仓',
-          time: '1小时前',
-          likes: 23,
-          replies: [
-            {
-              id: 111,
-              author: { name: '技术派', avatar: '👤', level: 'Lv.3' },
-              content: '@价值猎人 谢谢建议，会考虑分批操作',
-              time: '30分钟前',
-              likes: 8,
-              replies: []
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 2,
-      author: { name: '趋势跟踪', avatar: '👤', level: 'Lv.4' },
-      content: '茅台的技术面也在走好，日线MACD金叉，可以关注',
-      time: '1小时前',
-      likes: 32,
-      replies: []
-    },
-    {
-      id: 3,
-      author: { name: '基金达人', avatar: '👤', level: 'Lv.3' },
-      content: '作为消费股的代表，茅台的表现对整个板块都有风向标作用',
-      time: '45分钟前',
-      likes: 28,
-      replies: []
-    }
-  ]
-
-  const [comments, setComments] = useState(initialComments)
-
-  const countComments = (items) => items.reduce(
-    (total, item) => total + 1 + (item.replies ? countComments(item.replies) : 0),
-    0
-  )
-
-  const totalComments = countComments(comments)
-
-  const findCommentAuthor = (items, targetId) => {
-    for (const item of items) {
-      if (item.id === targetId) {
-        return item.author?.name || '用户'
-      }
-      if (item.replies?.length) {
-        const nested = findCommentAuthor(item.replies, targetId)
-        if (nested) {
-          return nested
-        }
+        setPost(postRes)
+        setComments(commentsRes.items || commentsRes || [])
+      } catch (err) {
+        console.error('Failed to fetch post data:', err)
+        setError(err.message || '加载数据失败')
+      } finally {
+        setLoading(false)
       }
     }
-    return null
-  }
 
-  const addReplyToComments = (items, targetId, reply) => items.map((item) => {
-    if (item.id === targetId) {
-      return { ...item, replies: [...(item.replies || []), reply] }
+    if (postId) {
+      fetchPostData()
     }
-    if (item.replies?.length) {
-      return { ...item, replies: addReplyToComments(item.replies, targetId, reply) }
-    }
-    return item
-  })
+  }, [postId])
 
-  const handleLike = () => {
-    setLiked(!liked)
+  const handleLike = async () => {
+    try {
+      setLiked(!liked)
+      // TODO: Call API to like post
+      console.warn('Like post:', postId)
+    } catch (err) {
+      console.error('Failed to like post:', err)
+    }
   }
 
   const handleBookmark = () => {
@@ -139,62 +60,70 @@ export default function PostDetail() {
     setReplyingTo(commentId)
   }
 
-  const handleSubmitComment = () => {
-    const trimmed = commentText.trim()
-    if (!trimmed) return
-
-    const replyTarget = replyingTo ? findCommentAuthor(comments, replyingTo) : null
-    const newComment = {
-      id: Date.now(),
-      author: { name: '我', avatar: '👤', level: 'Lv.1' },
-      content: replyTarget ? `@${replyTarget} ${trimmed}` : trimmed,
-      time: '刚刚',
-      likes: 0,
-      replies: []
+  const handleSubmitComment = async () => {
+    if (!commentText.trim()) return
+    try {
+      // 提交评论
+      await commentsService.createComment(postId, {
+        content: commentText,
+        parent_comment_id: replyingTo
+      })
+      setCommentText('')
+      setReplyingTo(null)
+      // 重新加载评论
+      const commentsRes = await commentsService.getPostComments(postId)
+      setComments(commentsRes.items || commentsRes || [])
+    } catch (err) {
+      console.error('Failed to submit comment:', err)
     }
-
-    setComments((prev) => (
-      replyingTo
-        ? addReplyToComments(prev, replyingTo, newComment)
-        : [newComment, ...prev]
-    ))
-
-    setCommentText('')
-    setReplyingTo(null)
   }
 
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center">
+          <Loader className="h-8 w-8 animate-spin text-primary-600" />
+          <p className="mt-2 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !post) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700">加载失败: {error || '帖子不存在'}</p>
+        </div>
+      </div>
+    )
+  }
+  // 渲染评论
   const renderComment = (comment, depth = 0) => {
     const marginLeft = depth * 4
-    const replyingComment = replyingTo === comment.id
+    const replyingComment = replyingTo === comment.comment_id
 
     return (
-      <div key={comment.id} className={`${marginLeft > 0 ? `ml-${marginLeft} border-l-2 border-gray-200 pl-4` : ''} py-4`}>
+      <div key={comment.comment_id} className={`${marginLeft > 0 ? `ml-${marginLeft} border-l-2 border-gray-200 pl-4` : ''} py-4`}>
         <div className="flex space-x-3">
           <div className="flex-shrink-0">
             <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">
-              {comment.author.avatar}
+              👤
             </div>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2">
-              <span className="font-medium text-gray-900">{comment.author.name}</span>
-              {comment.author.isProfessional && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                  <Award className="h-3 w-3 mr-0.5" />
-                  加V
-                </span>
-              )}
-              <span className="text-xs text-gray-500">{comment.author.level}</span>
-              <span className="text-xs text-gray-400">{comment.time}</span>
+              <span className="font-medium text-gray-900">{comment.user_id}</span>
+              <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
             </div>
             <div className="mt-2 text-gray-700 whitespace-pre-wrap">{comment.content}</div>
             <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
               <button className="flex items-center space-x-1 hover:text-primary-600">
                 <ThumbsUp className="h-4 w-4" />
-                <span>{comment.likes}</span>
+                <span>{comment.like_count || 0}</span>
               </button>
               <button
-                onClick={() => handleReply(comment.id)}
+                onClick={() => handleReply(comment.comment_id)}
                 className="flex items-center space-x-1 hover:text-primary-600"
               >
                 <MessageSquare className="h-4 w-4" />
@@ -207,7 +136,7 @@ export default function PostDetail() {
               <div className="mt-3 flex space-x-2">
                 <input
                   type="text"
-                  placeholder={`回复 ${comment.author.name}...`}
+                  placeholder="输入回复..."
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -227,13 +156,6 @@ export default function PostDetail() {
                 </button>
               </div>
             )}
-
-            {/* Nested Replies */}
-            {comment.replies && comment.replies.length > 0 && (
-              <div className="mt-4 space-y-4">
-                {comment.replies.map((reply) => renderComment(reply, depth + 1))}
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -250,46 +172,39 @@ export default function PostDetail() {
             {/* Post Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center space-x-2 mb-4">
-                {post.isEssence && (
+                {post.is_essence && (
                   <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
                     <Award className="h-3 w-3 mr-1" />
                     精华
                   </span>
                 )}
-                <Link to={`/forum/${post.section.toLowerCase().replace(' ', '-')}`} className="text-sm text-primary-600 hover:text-primary-700">
-                  {post.section}
+                <Link to={`/forum/${post.board_id}`} className="text-sm text-primary-600 hover:text-primary-700">
+                  {post.board_id}
                 </Link>
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-4">{post.title}</h1>
               
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <Link to={`/profile/${post.author.id}`} className="flex items-center space-x-3">
+                  <Link to={`/profile/${post.user_id}`} className="flex items-center space-x-3">
                     <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl">
-                      {post.author.avatar}
+                      👤
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{post.author.name}</span>
-                        {post.author.isProfessional && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                            <Award className="h-3 w-3 mr-0.5" />
-                            加V
-                          </span>
-                        )}
+                        <span className="font-medium text-gray-900">{post.user_id}</span>
                       </div>
-                      <span className="text-xs text-gray-500">{post.author.level}</span>
                     </div>
                   </Link>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
                   <span className="flex items-center">
                     <Clock className="h-4 w-4 mr-1" />
-                    {post.publishTime}
+                    {new Date(post.created_at).toLocaleString()}
                   </span>
                   <span className="flex items-center">
                     <Eye className="h-4 w-4 mr-1" />
-                    {post.views}
+                    {post.view_count || 0}
                   </span>
                 </div>
               </div>
@@ -301,18 +216,20 @@ export default function PostDetail() {
                 {post.content}
               </div>
               
-              {/* Tags */}
-              <div className="flex flex-wrap gap-2 mt-6">
-                {post.tags.map((tag) => (
-                  <Link
-                    key={tag}
-                    to={`/search?q=${tag}`}
-                    className="text-sm text-primary-600 bg-primary-50 px-3 py-1 rounded-full hover:bg-primary-100"
-                  >
-                    #{tag}
-                  </Link>
-                ))}
-              </div>
+              {/* Tags - 若后端提供 */}
+              {post.tags && post.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-6">
+                  {post.tags.map((tag) => (
+                    <Link
+                      key={tag}
+                      to={`/search?q=${tag}`}
+                      className="text-sm text-primary-600 bg-primary-50 px-3 py-1 rounded-full hover:bg-primary-100"
+                    >
+                      #{tag}
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Post Actions */}
@@ -323,15 +240,15 @@ export default function PostDetail() {
                   className={`flex items-center space-x-2 ${liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'}`}
                 >
                   <ThumbsUp className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} />
-                  <span>{post.likes}</span>
+                  <span>{post.like_count || 0}</span>
                 </button>
                 <button className="flex items-center space-x-2 text-gray-500 hover:text-primary-600">
                   <MessageSquare className="h-5 w-5" />
-                  <span>{totalComments}</span>
+                  <span>{post.comment_count || 0}</span>
                 </button>
                 <button className="flex items-center space-x-2 text-gray-500 hover:text-primary-600">
                   <Share2 className="h-5 w-5" />
-                  <span>{post.shares}</span>
+                  <span>分享</span>
                 </button>
                 <button
                   onClick={handleBookmark}
@@ -350,7 +267,7 @@ export default function PostDetail() {
           {/* Comments Section */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">评论 ({totalComments})</h2>
+              <h2 className="text-lg font-semibold">评论 ({comments.length})</h2>
             </div>
 
             {/* Comment Input */}
@@ -380,7 +297,11 @@ export default function PostDetail() {
 
             {/* Comments List */}
             <div className="p-4">
-              {comments.map((comment) => renderComment(comment))}
+              {comments.length > 0 ? (
+                comments.map((comment) => renderComment(comment))
+              ) : (
+                <div className="text-center py-8 text-gray-500">暂无评论，来抢沙发吧</div>
+              )}
               
               {/* Load More */}
               <div className="text-center mt-6">
@@ -394,53 +315,39 @@ export default function PostDetail() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Author Info */}
+          {/* Post Info */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl">
-                {post.author.avatar}
+            <h3 className="font-semibold mb-4">帖子信息</h3>
+            <div className="space-y-3 text-sm text-gray-600">
+              <div className="flex justify-between">
+                <span>作者ID:</span>
+                <span className="font-medium">{post.user_id}</span>
               </div>
-              <div>
-                <div className="flex items-center space-x-2">
-                  <span className="font-medium text-gray-900">{post.author.name}</span>
-                  {post.author.isProfessional && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                      <Award className="h-3 w-3 mr-0.5" />
-                      加V
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs text-gray-500">{post.author.level}</span>
+              <div className="flex justify-between">
+                <span>发布时间:</span>
+                <span className="font-medium">{new Date(post.created_at).toLocaleDateString()}</span>
               </div>
-            </div>
-            <div className="flex space-x-2">
-              <button className="flex-1 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50">
-                关注
-              </button>
-              <button className="flex-1 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-                私信
-              </button>
+              <div className="flex justify-between">
+                <span>浏览:</span>
+                <span className="font-medium">{post.view_count || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>点赞:</span>
+                <span className="font-medium">{post.like_count || 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>评论:</span>
+                <span className="font-medium">{post.comment_count || 0}</span>
+              </div>
             </div>
           </div>
 
-          {/* Related Posts */}
+          {/* Related Topics */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold mb-4">相关推荐</h3>
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Link key={i} to={`/post/${i}`} className="block text-sm text-gray-700 hover:text-primary-600 line-clamp-2">
-                  {i}. 贵州茅台技术面分析与操作建议
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Hot Topics */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h3 className="font-semibold mb-4">热门话题</h3>
+            <h3 className="font-semibold mb-4">相关话题</h3>
             <div className="space-y-2">
-              {['贵州茅台', '新能源', '量化交易', '基金定投'].map((topic) => (
-                <Link key={topic} to={`/search?q=${topic}`} className="block text-sm text-gray-700 hover:text-primary-600">
+              {['投资分析', '市场研究', '数据解读'].map((topic) => (
+                <Link key={topic} to={`/search?q=${topic}`} className="block text-sm text-gray-700 hover:text-primary-600 bg-gray-50 px-2 py-1 rounded">
                   #{topic}
                 </Link>
               ))}

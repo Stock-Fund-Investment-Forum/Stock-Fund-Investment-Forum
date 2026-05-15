@@ -1,11 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search as SearchIcon, Filter, Clock, TrendingUp, FileText, User, TrendingDown } from 'lucide-react'
+import { Search as SearchIcon, Filter, Clock, TrendingUp, FileText, User, Loader } from 'lucide-react'
+import { postsService, usersService, stocksService } from '../services'
 
 export default function SearchPage() {
   const [searchParams] = useSearchParams()
   const query = searchParams.get('q') || ''
-  const [activeTab, setActiveTab] = useState('posts') // 'posts', 'users', 'stocks'
+  const [activeTab, setActiveTab] = useState('posts')
+  const [posts, setPosts] = useState([])
+  const [users, setUsers] = useState([])
+  const [stocks, setStocks] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
   const [filters, setFilters] = useState({
     timeRange: 'all',
@@ -15,103 +21,42 @@ export default function SearchPage() {
     essenceOnly: false
   })
 
-  const posts = [
-    {
-      id: 1,
-      title: '贵州茅台2024年报深度解读：业绩超预期',
-      author: '价值猎人',
-      avatar: '👤',
-      section: 'A股讨论',
-      time: '2小时前',
-      views: 12345,
-      likes: 892,
-      comments: 156,
-      isEssence: true,
-      relevance: 95
-    },
-    {
-      id: 2,
-      title: '新能源板块轮动策略分享',
-      author: '趋势跟踪',
-      avatar: '👤',
-      section: 'A股讨论',
-      time: '1天前',
-      views: 5678,
-      likes: 423,
-      comments: 67,
-      isEssence: true,
-      relevance: 88
-    },
-    {
-      id: 3,
-      title: '量化交易策略：双均线系统回测结果',
-      author: '量化达人',
-      avatar: '👤',
-      section: '量化投资专区',
-      time: '3天前',
-      views: 3456,
-      likes: 234,
-      comments: 45,
-      isEssence: false,
-      relevance: 82
-    }
-  ]
+  const suggestions = ['贵州茅台', '新能源', '量化交易', '基金定投', '港股', '美股']
 
-  const users = [
-    {
-      id: 1,
-      name: '价值猎人',
-      avatar: '👤',
-      level: 'Lv.5',
-      bio: '专注价值投资，相信复利的力量',
-      followers: 1234,
-      posts: 128,
-      isProfessional: true,
-      relevance: 92
-    },
-    {
-      id: 2,
-      name: '量化达人',
-      avatar: '👤',
-      level: 'Lv.4',
-      bio: '量化策略研究，回测结果分享',
-      followers: 987,
-      posts: 89,
-      isProfessional: false,
-      relevance: 85
+  // 搜索函数
+  useEffect(() => {
+    if (!query) {
+      setPosts([])
+      setUsers([])
+      setStocks([])
+      return
     }
-  ]
 
-  const stocks = [
-    {
-      code: '600519',
-      name: '贵州茅台',
-      discussions: 2345,
-      change: '+2.5%',
-      trend: 'up',
-      relevance: 98
-    },
-    {
-      code: '300750',
-      name: '宁德时代',
-      discussions: 1892,
-      change: '+1.8%',
-      trend: 'up',
-      relevance: 90
-    },
-    {
-      code: '688981',
-      name: '中芯国际',
-      discussions: 1234,
-      change: '-0.5%',
-      trend: 'down',
-      relevance: 85
+    const performSearch = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // 并行搜索所有数据
+        const [postsRes, usersRes, stocksRes] = await Promise.all([
+          postsService.getPosts({ q: query, page: 1, per_page: 20 }),
+          usersService.getUsers({ nickname: query, page: 1, per_page: 10 }),
+          stocksService.getStocks({ q: query, page: 1, per_page: 10 })
+        ])
+
+        setPosts(postsRes.items || postsRes || [])
+        setUsers(usersRes.items || usersRes || [])
+        setStocks(stocksRes.items || stocksRes || [])
+      } catch (err) {
+        console.error('Search failed:', err)
+        setError(err.message || '搜索失败，请重试')
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
 
-  const suggestions = [
-    '贵州茅台', '宁德时代', '新能源', '量化交易', '基金定投'
-  ]
+    performSearch()
+  }, [query])
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -277,137 +222,132 @@ export default function SearchPage() {
             {/* Results Info */}
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-gray-500">
-                找到 <span className="font-medium text-gray-900">156</span> 条关于 "<span className="font-medium text-gray-900">{query}</span>" 的结果
+                找到 <span className="font-medium text-gray-900">{
+                  activeTab === 'posts' ? posts.length : 
+                  activeTab === 'users' ? users.length : 
+                  stocks.length
+                }</span> 条关于 "<span className="font-medium text-gray-900">{query}</span>" 的结果
               </p>
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <span>排序：</span>
-                <select
-                  value={filters.sortBy}
-                  onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-                  className="border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="relevance">相关度</option>
-                  <option value="time">发布时间</option>
-                  <option value="hot">热度</option>
-                </select>
-              </div>
             </div>
 
-            {/* Posts Results */}
-            {activeTab === 'posts' && (
-              <div className="space-y-4">
-                {posts.map((post) => (
-                  <div key={post.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start space-x-4">
-                      <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl">
-                        {post.avatar}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          {post.isEssence && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                              精华
-                            </span>
-                          )}
-                          <span className="text-sm text-primary-600">{post.section}</span>
-                          <span className="text-xs text-gray-400">相关度 {post.relevance}%</span>
-                        </div>
-                        <h3 className="text-lg font-medium text-gray-900 hover:text-primary-600 mb-2">
-                          {post.title}
-                        </h3>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span>{post.author}</span>
-                          <span className="flex items-center">
-                            <Clock className="h-4 w-4 mr-1" />
-                            {post.time}
-                          </span>
-                          <span>{post.views} 浏览</span>
-                          <span>{post.likes} 点赞</span>
-                          <span>{post.comments} 评论</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader className="h-6 w-6 animate-spin text-primary-600 mr-2" />
+                <span className="text-gray-600">搜索中...</span>
               </div>
-            )}
-
-            {/* Users Results */}
-            {activeTab === 'users' && (
-              <div className="space-y-4">
-                {users.map((user) => (
-                  <div key={user.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start space-x-4">
-                      <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-3xl">
-                        {user.avatar}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h3 className="text-lg font-medium text-gray-900">{user.name}</h3>
-                          {user.isProfessional && (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                              加V
-                            </span>
-                          )}
-                          <span className="text-sm text-gray-500">{user.level}</span>
-                          <span className="text-xs text-gray-400">相关度 {user.relevance}%</span>
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">{user.bio}</p>
-                        <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                          <span>{user.followers} 粉丝</span>
-                          <span>{user.posts} 帖子</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+            ) : error ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+                搜索失败: {error}
               </div>
-            )}
-
-            {/* Stocks Results */}
-            {activeTab === 'stocks' && (
-              <div className="space-y-4">
-                {stocks.map((stock) => (
-                  <div key={stock.code} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-700">
-                          {stock.code.slice(-4)}
+            ) : (
+              <>
+                {/* Posts Results */}
+                {activeTab === 'posts' && (
+                  <div className="space-y-4">
+                    {posts.length > 0 ? (
+                      posts.map((post) => (
+                        <div key={post.post_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
+                          <a href={`/post/${post.post_id}`}>
+                            <div className="flex items-start space-x-4">
+                              <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center text-2xl">
+                                👤
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  {post.is_essence && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                      精华
+                                    </span>
+                                  )}
+                                  <span className="text-sm text-primary-600">{post.board_id}</span>
+                                </div>
+                                <h3 className="text-lg font-medium text-gray-900 hover:text-primary-600 mb-2">
+                                  {post.title}
+                                </h3>
+                                <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                  <span>{post.user_id}</span>
+                                  <span className="flex items-center">
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    {new Date(post.created_at).toLocaleString()}
+                                  </span>
+                                  <span>{post.view_count || 0} 浏览</span>
+                                  <span>{post.like_count || 0} 点赞</span>
+                                  <span>{post.comment_count || 0} 评论</span>
+                                </div>
+                              </div>
+                            </div>
+                          </a>
                         </div>
-                        <div>
-                          <h3 className="text-lg font-medium text-gray-900">{stock.name}</h3>
-                          <p className="text-sm text-gray-500">{stock.code}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center space-x-2">
-                          {stock.trend === 'up' ? (
-                            <TrendingUp className="h-5 w-5 text-red-500" />
-                          ) : (
-                            <TrendingDown className="h-5 w-5 text-green-500" />
-                          )}
-                          <span className={`font-medium ${stock.trend === 'up' ? 'text-red-500' : 'text-green-500'}`}>
-                            {stock.change}
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1">{stock.discussions} 讨论</p>
-                      </div>
-                    </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">暂无搜索结果</div>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
 
-            {/* Pagination */}
-            <div className="flex items-center justify-center space-x-2 mt-6">
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50" disabled>
-                上一页
-              </button>
-              <button className="px-4 py-2 bg-primary-600 text-white rounded-lg">1</button>
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">2</button>
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">3</button>
-              <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">下一页</button>
-            </div>
+                {/* Users Results */}
+                {activeTab === 'users' && (
+                  <div className="space-y-4">
+                    {users.length > 0 ? (
+                      users.map((user) => (
+                        <div key={user.user_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                          <div className="flex items-start space-x-4">
+                            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-3xl">
+                              👤
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2">
+                                <h3 className="text-lg font-medium text-gray-900">{user.nickname}</h3>
+                                {user.auth_level === 'EXPERT' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    加V
+                                  </span>
+                                )}
+                                <span className="text-sm text-gray-500">Lv.{user.level || 1}</span>
+                              </div>
+                              <p className="text-sm text-gray-500 mt-1">{user.bio || '暂无介绍'}</p>
+                              <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                                <span>{user.points || 0} 积分</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">暂无用户</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Stocks Results */}
+                {activeTab === 'stocks' && (
+                  <div className="space-y-4">
+                    {stocks.length > 0 ? (
+                      stocks.map((stock) => (
+                        <div key={stock.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-4">
+                              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center font-bold text-gray-700">
+                                {stock.symbol?.slice(-3) || 'N/A'}
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-medium text-gray-900">{stock.name}</h3>
+                                <p className="text-sm text-gray-500">{stock.symbol || 'N/A'}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm text-gray-500">{stock.discussion_count || 0} 讨论</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">暂无股票信息</div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}

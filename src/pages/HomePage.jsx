@@ -1,77 +1,71 @@
 import React, { useState, useEffect } from 'react';
+import { postsService } from '../services';
 import '../styles/HomePage.css';
 
 export default function HomePage() {
   const [posts, setPosts] = useState([]);
   const [activeTab, setActiveTab] = useState('recommend');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    // 模拟加载帖子数据
-    const mockPosts = [
-      {
-        id: '1',
-        title: '宁德时代今日走势分析',
-        author: '张三',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user1',
-        content: '从分时图看，早盘放量突破，说明主力意图明确...',
-        board: 'A股讨论',
-        comments: 45,
-        likes: 120,
-        views: 2500,
-        tags: ['CATL', '新能源', '技术面'],
-        timestamp: '2小时前',
-        image: 'https://via.placeholder.com/400x200?text=CATL+Chart',
-        isHot: true,
-        isEssence: false,
-      },
-      {
-        id: '2',
-        title: '2024年新能源行业投资策略',
-        author: '李四',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user2',
-        content: '从基本面分析，新能源行业仍然处于发展初期，未来增长空间巨大...',
-        board: '价值投资专区',
-        comments: 78,
-        likes: 320,
-        views: 5200,
-        tags: ['新能源', '基本面', '长期投资'],
-        timestamp: '4小时前',
-        image: null,
-        isHot: true,
-        isEssence: true,
-      },
-      {
-        id: '3',
-        title: '下周上证指数走势投票',
-        author: '王五',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=user3',
-        content: '投票：下周上证指数会如何走势？',
-        board: 'A股讨论',
-        comments: 156,
-        likes: 210,
-        views: 3800,
-        tags: ['投票', '指数', '预测'],
-        timestamp: '6小时前',
-        image: null,
-        isHot: true,
-        isEssence: false,
-        isPoll: true,
-        pollOptions: ['上涨', '震荡', '下跌'],
-        pollVotes: [45, 38, 17],
-      },
-    ];
-    setPosts(mockPosts);
+    const fetchPosts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // 从后端获取帖子
+        const response = await postsService.getPosts({ 
+          page: 1, 
+          per_page: 10,
+        });
+        
+        const postsData = response.items || response || [];
+        setPosts(postsData);
+      } catch (err) {
+        console.error('Failed to fetch posts:', err);
+        setError(err.message || '加载帖子失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPosts();
   }, [activeTab]);
 
-  const handleLike = (postId) => {
-    setPosts((prev) =>
-      prev.map((p) => (p.id === postId ? { ...p, likes: p.likes + 1 } : p))
-    );
+  const handleLike = async (postId) => {
+    try {
+      // 调用 API 进行点赞操作
+      // TODO: 等待后端实现点赞 API endpoint
+      console.warn('Like post:', postId);
+    } catch (err) {
+      console.error('Failed to like post:', err);
+    }
   };
 
   const handleComment = (postId) => {
     window.location.href = `/post/${postId}`;
   };
+
+  if (loading) {
+    return (
+      <div className="home-page">
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <p>加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="home-page">
+        <div style={{ textAlign: 'center', padding: '40px', color: 'red' }}>
+          <p>加载失败: {error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="home-page">
@@ -105,92 +99,58 @@ export default function HomePage() {
           </div>
         ) : (
           posts.map((post) => (
-            <article key={post.id} className="post-card">
+            <article key={post.post_id} className="post-card">
               <div className="post-header">
                 <div className="author-info">
-                  <img src={post.avatar} alt={post.author} className="author-avatar" />
+                  <img 
+                    src={'https://api.dicebear.com/7.x/avataaars/svg?seed=' + (post.user_id || 'user')} 
+                    alt={post.user_id} 
+                    className="author-avatar" 
+                  />
                   <div className="author-details">
-                    <h4 className="author-name">{post.author}</h4>
+                    <h4 className="author-name">{post.user_id}</h4>
                     <span className="post-meta">
-                      {post.board} · {post.timestamp}
+                      {post.board_id} · {new Date(post.created_at).toLocaleString()}
                     </span>
                   </div>
                 </div>
-                {post.isHot && <span className="badge badge-hot">🔥 热</span>}
-                {post.isEssence && <span className="badge badge-essence">✨ 精华</span>}
+                {post.is_essence && <span className="badge badge-essence">✨ 精华</span>}
               </div>
 
               <div className="post-content">
                 <h3 className="post-title">{post.title}</h3>
                 <p className="post-excerpt">{post.content}</p>
 
-                {post.image && (
-                  <div className="post-image">
-                    <img src={post.image} alt="post" />
-                  </div>
-                )}
-
-                {post.isPoll && (
-                  <div className="poll-section">
-                    {post.pollOptions.map((option, idx) => (
-                      <div key={idx} className="poll-option">
-                        <div className="option-text">{option}</div>
-                        <div className="option-bar">
-                          <div
-                            className="option-progress"
-                            style={{
-                              width: `${(post.pollVotes[idx] / post.pollVotes.reduce((a, b) => a + b, 0)) * 100}%`,
-                            }}
-                          />
-                          <span className="option-percent">
-                            {Math.round((post.pollVotes[idx] / post.pollVotes.reduce((a, b) => a + b, 0)) * 100)}%
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 <div className="post-tags">
-                  {post.tags.map((tag) => (
-                    <a key={tag} href={`/search?q=${tag}`} className="tag">
-                      #{tag}
-                    </a>
-                  ))}
+                  {/* Tags from API if available */}
                 </div>
               </div>
 
-              <div className="post-stats">
-                <span className="stat">👁️ {post.views} 浏览</span>
-                <span className="stat">💬 {post.comments} 评论</span>
-                <span className="stat">❤️ {post.likes} 点赞</span>
-              </div>
-
-              <div className="post-actions">
-                <button
-                  className="action-btn"
-                  onClick={() => handleLike(post.id)}
-                >
-                  ❤️ 点赞
-                </button>
-                <button
-                  className="action-btn"
-                  onClick={() => handleComment(post.id)}
-                >
-                  💬 评论
-                </button>
-                <button className="action-btn">
-                  💾 收藏
-                </button>
-                <button className="action-btn">
-                  🔗 分享
-                </button>
+              <div className="post-footer">
+                <div className="post-stats">
+                  <span className="stat">
+                    <i className="icon icon-eye"></i> {post.view_count || 0} 浏览
+                  </span>
+                  <span className="stat">
+                    <i className="icon icon-like"></i> {post.like_count || 0} 点赞
+                  </span>
+                  <span className="stat">
+                    <i className="icon icon-comment"></i> {post.comment_count || 0} 评论
+                  </span>
+                </div>
+                <div className="post-actions">
+                  <button className="action-btn" onClick={() => handleLike(post.post_id)}>
+                    👍 点赞
+                  </button>
+                  <button className="action-btn" onClick={() => handleComment(post.post_id)}>
+                    💬 评论
+                  </button>
+                </div>
               </div>
             </article>
           ))
         )}
       </div>
-
       <div className="feed-sidebar">
         <div className="card">
           <h3>🔥 热门股票</h3>

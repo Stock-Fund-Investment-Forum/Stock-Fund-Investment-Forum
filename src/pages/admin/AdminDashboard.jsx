@@ -1,104 +1,115 @@
-import { useState } from 'react'
-import { LayoutDashboard, MessageSquare, Users, Shield, AlertTriangle, CheckCircle, XCircle, Eye, Ban, TrendingUp, Award } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { LayoutDashboard, MessageSquare, Users, Shield, AlertTriangle, CheckCircle, XCircle, Eye, Ban, TrendingUp, Award, Loader } from 'lucide-react'
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview')
+  const [stats, setStats] = useState({
+    pendingPosts: 0,
+    pendingReports: 0,
+    totalUsers: 0,
+    activeUsers: 0,
+    todayPosts: 0,
+    todayReports: 0
+  })
+  const [pendingPosts, setPendingPosts] = useState([])
+  const [reports, setReports] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const stats = {
-    pendingPosts: 8,
-    pendingReports: 3,
-    totalUsers: 12500,
-    activeUsers: 8900,
-    todayPosts: 234,
-    todayReports: 12
+  // TODO: 当后端提供管理员API时，集成以下端点：
+  // - GET /admin/posts/pending - 获取待审核帖子
+  // - GET /admin/reports - 获取举报信息
+  // - GET /admin/stats - 获取统计数据
+  // - POST /admin/posts/{postId}/approve - 批准帖子
+  // - POST /admin/posts/{postId}/reject - 拒绝帖子
+  // - POST /admin/reports/{reportId}/resolve - 解决举报
+
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        // 临时使用模拟数据，等待后端管理员API实现
+        // const [statsRes, postsRes, reportsRes] = await Promise.all([
+        //   adminService.getStats(),
+        //   adminService.getPendingPosts(),
+        //   adminService.getReports()
+        // ])
+
+        // 模拟数据 - 仅用于UI演示
+        setStats({
+          pendingPosts: 8,
+          pendingReports: 3,
+          totalUsers: 12500,
+          activeUsers: 8900,
+          todayPosts: 234,
+          todayReports: 12
+        })
+        setPendingPosts([])
+        setReports([])
+      } catch (err) {
+        console.error('Failed to fetch admin data:', err)
+        setError(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchAdminData()
+  }, [])
+
+  const handleApprovePost = async (postId) => {
+    try {
+      console.log('Approving post:', postId)
+      // TODO: await adminService.approvePost(postId)
+      // TODO: 重新加载列表
+    } catch (err) {
+      console.error('Failed to approve post:', err)
+    }
   }
 
-  const pendingPosts = [
-    {
-      id: 1,
-      title: '某股票推荐分析',
-      author: '用户A',
-      content: '明天这只票必涨，跟上操作赚30%',
-      reason: '疑似荐股',
-      time: '10分钟前'
-    },
-    {
-      id: 2,
-      title: '市场分析',
-      author: '用户B',
-      content: '包含敏感词汇',
-      reason: '敏感词触发',
-      time: '30分钟前'
-    },
-    {
-      id: 3,
-      title: '投资策略分享',
-      author: '用户C',
-      content: '正常内容待审核',
-      reason: '新用户发帖',
-      time: '1小时前'
+  const handleRejectPost = async (postId) => {
+    try {
+      console.log('Rejecting post:', postId)
+      // TODO: await adminService.rejectPost(postId)
+      // TODO: 重新加载列表
+    } catch (err) {
+      console.error('Failed to reject post:', err)
     }
-  ]
-
-  const reports = [
-    {
-      id: 1,
-      type: 'spam',
-      reporter: '用户X',
-      reportedUser: '用户Y',
-      reason: '发布垃圾信息',
-      content: '重复发帖',
-      time: '20分钟前'
-    },
-    {
-      id: 2,
-      type: 'inappropriate',
-      reporter: '用户Z',
-      reportedUser: '用户W',
-      reason: '不当言论',
-      content: '人身攻击',
-      time: '1小时前'
-    },
-    {
-      id: 3,
-      type: 'violation',
-      reporter: '用户A',
-      reportedUser: '用户B',
-      reason: '违规荐股',
-      content: '承诺收益',
-      time: '2小时前'
-    }
-  ]
-
-  const suspiciousUsers = [
-    {
-      id: 1,
-      name: '用户X',
-      posts: 50,
-      timeRange: '1小时',
-      issue: '高频发帖',
-      qualityScore: 3.2
-    },
-    {
-      id: 2,
-      name: '用户Y',
-      posts: 30,
-      timeRange: '1小时',
-      issue: '内容质量低',
-      qualityScore: 2.8
-    }
-  ]
-
-  const handleApprovePost = (postId) => {
-    console.warn('Approving post:', postId)
   }
 
-  const handleRejectPost = (postId) => {
-    console.warn('Rejecting post:', postId)
+  const handleResolveReport = async (reportId, action) => {
+    try {
+      console.log('Resolving report:', reportId, action)
+      // TODO: await adminService.resolveReport(reportId, action)
+      // TODO: 重新加载列表
+    } catch (err) {
+      console.error('Failed to resolve report:', err)
+    }
   }
 
-  const handleResolveReport = (reportId, action) => {
-    console.warn('Resolving report:', reportId, action)
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <Loader className="h-8 w-8 animate-spin text-primary-600" />
+          <p className="mt-2 text-gray-600">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-700">加载失败: {error}</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

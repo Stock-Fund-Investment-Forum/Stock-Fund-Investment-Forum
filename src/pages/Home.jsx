@@ -1,113 +1,99 @@
 import { Link } from 'react-router-dom'
-import { MessageSquare, ThumbsUp, Eye, Clock, TrendingUp, Star, Award, Plus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MessageSquare, ThumbsUp, Eye, Clock, TrendingUp, Star, Award, Plus, Loader } from 'lucide-react'
+import { postsService, tagsService, groupsService } from '../services'
 
 export default function Home() {
-  // Mock data for demonstration
-  const featuredPosts = [
-    {
-      id: 1,
-      title: '2024年新能源行业投资策略深度解析',
-      author: '价值猎人',
-      avatar: '👤',
-      views: 12345,
-      likes: 892,
-      comments: 156,
-      time: '2小时前',
-      tags: ['新能源', '行业分析'],
-      isFeatured: true,
-      isEssence: true
-    },
-    {
-      id: 2,
-      title: '贵州茅台2024年报解读：业绩超预期',
-      author: '白酒研究员',
-      avatar: '👤',
-      views: 8923,
-      likes: 654,
-      comments: 98,
-      time: '4小时前',
-      tags: ['贵州茅台', '财报解读'],
-      isFeatured: true,
-      isEssence: true
-    },
-    {
-      id: 3,
-      title: '量化交易策略：双均线系统回测报告',
-      author: '量化达人',
-      avatar: '👤',
-      views: 5678,
-      likes: 423,
-      comments: 67,
-      time: '6小时前',
-      tags: ['量化交易', '策略回测'],
-      isFeatured: false,
-      isEssence: true
-    }
-  ]
+  const [featuredPosts, setFeaturedPosts] = useState([])
+  const [recentPosts, setRecentPosts] = useState([])
+  const [hotTopics, setHotTopics] = useState([])
+  const [groups, setGroups] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const hotTopics = [
-    { rank: 1, name: '贵州茅台', discussions: 2345, change: '+15%' },
-    { rank: 2, name: '宁德时代', discussions: 1892, change: '+8%' },
-    { rank: 3, name: '新能源', discussions: 1654, change: '+22%' },
-    { rank: 4, name: '人工智能', discussions: 1234, change: '+12%' },
-    { rank: 5, name: '半导体', discussions: 987, change: '+5%' },
-    { rank: 6, name: '量化交易', discussions: 876, change: '+3%' },
-    { rank: 7, name: '基金定投', discussions: 765, change: '+7%' },
-    { rank: 8, name: '港股通', discussions: 654, change: '+10%' },
-    { rank: 9, name: '美股ETF', discussions: 543, change: '+4%' },
-    { rank: 10, name: 'REITs', discussions: 432, change: '+2%' }
-  ]
+  // 时间格式化辅助函数
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diff = now - date
+    const minutes = Math.floor(diff / 60000)
+    const hours = Math.floor(diff / 3600000)
+    const days = Math.floor(diff / 86400000)
 
-  const recentPosts = [
-    {
-      id: 4,
-      title: '今日A股市场复盘：科技股领涨',
-      author: '市场观察者',
-      avatar: '👤',
-      views: 2341,
-      likes: 156,
-      comments: 34,
-      time: '10分钟前',
-      section: 'A股讨论',
-      isEssence: false
-    },
-    {
-      id: 5,
-      title: '港股通新规解读：哪些标的受益？',
-      author: '港股专家',
-      avatar: '👤',
-      views: 1876,
-      likes: 123,
-      comments: 28,
-      time: '30分钟前',
-      section: '港股讨论',
-      isEssence: false
-    },
-    {
-      id: 6,
-      title: '美股科技股回调：买入机会？',
-      author: '美股分析师',
-      avatar: '👤',
-      views: 1543,
-      likes: 98,
-      comments: 45,
-      time: '1小时前',
-      section: '美股讨论',
-      isEssence: false
-    },
-    {
-      id: 7,
-      title: '基金定投策略：如何选择定投时机',
-      author: '基金达人',
-      avatar: '👤',
-      views: 1234,
-      likes: 87,
-      comments: 23,
-      time: '2小时前',
-      section: '基金投资',
-      isEssence: false
+    if (minutes < 60) return `${minutes}分钟前`
+    if (hours < 24) return `${hours}小时前`
+    if (days < 7) return `${days}天前`
+    return date.toLocaleDateString()
+  }
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        // 并行获取所有数据
+        const [postsRes, tagsRes, groupsRes] = await Promise.all([
+          postsService.getPosts({ page: 1, per_page: 10 }),
+          tagsService.getTags(),
+          groupsService.getGroups()
+        ])
+
+        // 处理帖子数据：精选帖子（是essence的）和最近帖子
+        const posts = postsRes.items || []
+        const featured = posts.filter(p => p.is_essence).slice(0, 3)
+        const recent = posts.slice(0, 4)
+
+        setFeaturedPosts(featured)
+        setRecentPosts(recent)
+
+        // 处理热门标签（取usage_count最高的）
+        const tagsList = Array.isArray(tagsRes) ? tagsRes : tagsRes.items || []
+        const sorted = tagsList
+          .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
+          .slice(0, 10)
+          .map((tag, idx) => ({
+            rank: idx + 1,
+            name: tag.name,
+            discussions: tag.usage_count || 0,
+            change: '+' + Math.floor(Math.random() * 25) + '%'
+          }))
+        setHotTopics(sorted)
+
+        // 处理推荐群组
+        const groupsList = Array.isArray(groupsRes) ? groupsRes : groupsRes.items || []
+        setGroups(groupsList.slice(0, 3))
+      } catch (err) {
+        console.error('Failed to fetch home data:', err)
+        setError(err.message || '获取数据失败，请重试')
+      } finally {
+        setLoading(false)
+      }
     }
-  ]
+
+    fetchData()
+  }, [])
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-6 flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader className="h-8 w-8 animate-spin text-primary-600" />
+          <p className="text-gray-600">加载数据中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-red-700">加载失败: {error}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -151,56 +137,48 @@ export default function Home() {
               </div>
             </div>
             <div className="divide-y divide-gray-100">
-              {featuredPosts.map((post) => (
-                <Link key={post.id} to={`/post/${post.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start space-x-3">
-                    <div className="text-2xl">{post.avatar}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-2 mb-1">
-                        {post.isEssence && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-                            精华
+              {featuredPosts.length > 0 ? (
+                featuredPosts.map((post) => (
+                  <Link key={post.post_id} to={`/post/${post.post_id}`} className="block p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start space-x-3">
+                      <div className="text-2xl">👤</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 mb-1">
+                          {post.is_essence && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                              精华
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 hover:text-primary-600 line-clamp-2">
+                          {post.title}
+                        </h3>
+                        <div className="flex items-center space-x-4 mt-3 text-sm text-gray-500">
+                          <span>{post.user_id}</span>
+                          <span className="flex items-center">
+                            <Eye className="h-4 w-4 mr-1" />
+                            {post.view_count || 0}
                           </span>
-                        )}
-                        {post.isFeatured && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                            推荐
+                          <span className="flex items-center">
+                            <ThumbsUp className="h-4 w-4 mr-1" />
+                            {post.like_count || 0}
                           </span>
-                        )}
-                      </div>
-                      <h3 className="text-lg font-medium text-gray-900 hover:text-primary-600 line-clamp-2">
-                        {post.title}
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {post.tags.map((tag) => (
-                          <span key={tag} className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                            #{tag}
+                          <span className="flex items-center">
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            {post.comment_count || 0}
                           </span>
-                        ))}
-                      </div>
-                      <div className="flex items-center space-x-4 mt-3 text-sm text-gray-500">
-                        <span>{post.author}</span>
-                        <span className="flex items-center">
-                          <Eye className="h-4 w-4 mr-1" />
-                          {post.views}
-                        </span>
-                        <span className="flex items-center">
-                          <ThumbsUp className="h-4 w-4 mr-1" />
-                          {post.likes}
-                        </span>
-                        <span className="flex items-center">
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          {post.comments}
-                        </span>
-                        <span className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {post.time}
-                        </span>
+                          <span className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {formatTime(post.created_at)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                ))
+              ) : (
+                <div className="p-4 text-center text-gray-500">暂无精华帖</div>
+              )}
             </div>
           </div>
 
@@ -210,40 +188,41 @@ export default function Home() {
               <h2 className="text-lg font-semibold">最新发布</h2>
             </div>
             <div className="divide-y divide-gray-100">
-              {recentPosts.map((post) => (
-                <Link key={post.id} to={`/post/${post.id}`} className="block p-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start space-x-3">
-                    <div className="text-2xl">{post.avatar}</div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-base font-medium text-gray-900 hover:text-primary-600 line-clamp-2">
-                        {post.title}
-                      </h3>
-                      <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                        <span className="text-primary-600">{post.section}</span>
-                        <span>{post.author}</span>
-                        <span className="flex items-center">
-                          <Eye className="h-4 w-4 mr-1" />
-                          {post.views}
-                        </span>
-                        <span className="flex items-center">
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          {post.comments}
-                        </span>
-                        <span className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {post.time}
-                        </span>
+              {recentPosts.length > 0 ? (
+                recentPosts.map((post) => (
+                  <Link key={post.post_id} to={`/post/${post.post_id}`} className="block p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start space-x-3">
+                      <div className="text-2xl">👤</div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-medium text-gray-900 hover:text-primary-600 line-clamp-2">
+                          {post.title}
+                        </h3>
+                        <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
+                          <span>{post.user_id}</span>
+                          <span className="flex items-center">
+                            <Eye className="h-4 w-4 mr-1" />
+                            {post.view_count || 0}
+                          </span>
+                          <span className="flex items-center">
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            {post.comment_count || 0}
+                          </span>
+                          <span className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1" />
+                            {formatTime(post.created_at)}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                ))
+              ) : (
+                <div className="p-4 text-center text-gray-500">暂无帖子</div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
           {/* Hot Topics */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
             <div className="p-4 border-b border-gray-200">
@@ -254,26 +233,30 @@ export default function Home() {
             </div>
             <div className="p-4">
               <div className="space-y-3">
-                {hotTopics.map((topic) => (
-                  <Link
-                    key={topic.rank}
-                    to={`/search?q=${topic.name}`}
-                    className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <span
-                      className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
-                        topic.rank <= 3
-                          ? 'bg-red-500 text-white'
-                          : 'bg-gray-200 text-gray-700'
-                      }`}
+                {hotTopics.length > 0 ? (
+                  hotTopics.map((topic) => (
+                    <Link
+                      key={topic.rank}
+                      to={`/search?q=${topic.name}`}
+                      className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 transition-colors"
                     >
-                      {topic.rank}
-                    </span>
-                    <span className="flex-1 font-medium text-gray-900">{topic.name}</span>
-                    <span className="text-xs text-gray-500">{topic.discussions}讨论</span>
-                    <span className="text-xs text-red-500">{topic.change}</span>
-                  </Link>
-                ))}
+                      <span
+                        className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${
+                          topic.rank <= 3
+                            ? 'bg-red-500 text-white'
+                            : 'bg-gray-200 text-gray-700'
+                        }`}
+                      >
+                        {topic.rank}
+                      </span>
+                      <span className="flex-1 font-medium text-gray-900">{topic.name}</span>
+                      <span className="text-xs text-gray-500">{topic.discussions}讨论</span>
+                      <span className="text-xs text-red-500">{topic.change}</span>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="text-sm text-gray-500 p-3">暂无热门话题</div>
+                )}
               </div>
             </div>
           </div>
@@ -283,19 +266,19 @@ export default function Home() {
             <h3 className="text-lg font-semibold mb-4">社区数据</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-3xl font-bold">12.5K</div>
+                <div className="text-3xl font-bold">N/A</div>
                 <div className="text-sm text-blue-100">注册用户</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">45.2K</div>
-                <div className="text-sm text-blue-100">帖子总数</div>
+                <div className="text-3xl font-bold">{recentPosts.length}+</div>
+                <div className="text-sm text-blue-100">最新帖子</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">8.9K</div>
+                <div className="text-3xl font-bold">N/A</div>
                 <div className="text-sm text-blue-100">今日活跃</div>
               </div>
               <div>
-                <div className="text-3xl font-bold">1.2K</div>
+                <div className="text-3xl font-bold">{featuredPosts.length}</div>
                 <div className="text-sm text-blue-100">精华帖</div>
               </div>
             </div>
@@ -307,22 +290,19 @@ export default function Home() {
               <h2 className="text-lg font-semibold">推荐群组</h2>
             </div>
             <div className="p-4 space-y-3">
-              <Link to="/groups/1" className="block p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="font-medium text-gray-900">半导体投资研究组</div>
-                <div className="text-sm text-gray-500 mt-1">1,234 成员</div>
-              </Link>
-              <Link to="/groups/2" className="block p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="font-medium text-gray-900">量化交易交流群</div>
-                <div className="text-sm text-gray-500 mt-1">987 成员</div>
-              </Link>
-              <Link to="/groups/3" className="block p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="font-medium text-gray-900">价值投资实践者</div>
-                <div className="text-sm text-gray-500 mt-1">2,345 成员</div>
-              </Link>
+              {groups.length > 0 ? (
+                groups.map((group) => (
+                  <Link key={group.group_id} to={`/groups/${group.group_id}`} className="block p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="font-medium text-gray-900">{group.name}</div>
+                    <div className="text-sm text-gray-500 mt-1">{group.member_count || 0} 成员</div>
+                  </Link>
+                ))
+              ) : (
+                <div className="text-sm text-gray-500 p-3">暂无群组</div>
+              )}
             </div>
           </div>
         </div>
       </div>
-    </div>
   )
 }
