@@ -4,4 +4,4 @@
 | 赵原一 | 后端接口文档backend_api.md                                                                                                                                                                                           |
 | 李烨  | 架构和类设计文档architect.md,ER图er_diagram.md,数据库设计database_design_guide.md,README.md,数据库脚本database_schema.sql,需求文档requirements document.md,数据库脚本示例sql_queries_examples.md,数据库设计文档db.md,前端UI文档ui_design.md,AI使用文档ai.md |
 | 陶宏阳 | 交互场景文档use_cases.md,用户故事文档user_stories.md                                                                                                                                                                       |
-| 郭熙诚 | 完成认证路由页的基础登录、注册和找回密码流程联动，接入现有 AuthContext；补充表单校验、验证码倒计时和成功后的跳转收口。                                                                                                                      |
+| 郭熙诚 | 完成认证路由页的基础登录、注册和找回密码流程联动，接入现有 AuthContext；补充表单校验、验证码倒计时和成功后的跳转收口；完善帖子详情页评论本地提交与回复展示流程。                                                                                       |
