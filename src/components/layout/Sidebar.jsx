@@ -68,28 +68,6 @@ export default function Sidebar() {
           </Link>
         </nav>
       </div>
-
-      {/* Hot Topics */}
-      <div className="mt-8 pt-8 border-t border-gray-200">
-        <h3 className="px-4 text-sm font-semibold text-gray-500 mb-4">热门话题</h3>
-        <div className="space-y-2">
-          <Link to="/search?q=贵州茅台" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-            #贵州茅台
-          </Link>
-          <Link to="/search?q=宁德时代" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-            #宁德时代
-          </Link>
-          <Link to="/search?q=新能源" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-            #新能源
-          </Link>
-          <Link to="/search?q=人工智能" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-            #人工智能
-          </Link>
-          <Link to="/search?q=量化交易" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">
-            #量化交易
-          </Link>
-        </div>
-      </div>
     </aside>
   )
 }
