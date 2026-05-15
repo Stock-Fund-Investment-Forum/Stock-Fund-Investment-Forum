@@ -10,7 +10,7 @@ import Settings from './pages/user/Settings';
 import PostDetail from './pages/post/PostDetail';
 import CreatePost from './pages/post/CreatePost';
 import ForumSection from './pages/forum/ForumSection';
-import SearchPage from './pages/Search';
+import Search from './pages/Search';
 import Messages from './pages/social/Messages';
 import Groups from './pages/social/Groups';
 import GroupDetail from './pages/social/GroupDetail';
@@ -34,7 +34,7 @@ function App() {
             <Route path="settings" element={<Settings />} />
             <Route path="post/:postId" element={<PostDetail />} />
             <Route path="create" element={<CreatePost />} />
-            <Route path="search" element={<SearchPage />} />
+            <Route path="search" element={<Search />} />
             <Route path="messages" element={<Messages />} />
             <Route path="groups" element={<Groups />} />
             <Route path="groups/:groupId" element={<GroupDetail />} />

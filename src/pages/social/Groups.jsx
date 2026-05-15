@@ -1,88 +1,79 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Users, Lock, Globe, Star, MoreHorizontal } from 'lucide-react'
+import { Plus, Search, Users, Lock, Globe, Star, MoreHorizontal, Loader } from 'lucide-react'
+import { groupsService } from '../../services'
+
+const EMOJI_LIST = ['💾', '📊', '💰', '⚡', '🇭🇰', '🇺🇸', '🏢', '📈', '🎯', '🔬', '🤖', '🏦']
+
+function getEmoji(index) {
+  return EMOJI_LIST[index % EMOJI_LIST.length]
+}
 
 export default function Groups() {
-  const [activeTab, setActiveTab] = useState('my') // 'my', 'discover', 'manage'
+  const [activeTab, setActiveTab] = useState('my')
+  const [myGroups, setMyGroups] = useState([])
+  const [discoverGroups, setDiscoverGroups] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const myGroups = [
-    {
-      id: 1,
-      name: '半导体投资研究组',
-      description: '专注半导体行业投资研究，分享行业报告和投资机会',
-      avatar: '💾',
-      members: 1234,
-      posts: 4567,
-      isOwner: false,
-      isAdmin: true,
-      unread: 5
-    },
-    {
-      id: 2,
-      name: '量化交易交流群',
-      description: '量化策略讨论、回测结果分享、代码交流',
-      avatar: '📊',
-      members: 987,
-      posts: 2345,
-      isOwner: true,
-      isAdmin: true,
-      unread: 0
-    },
-    {
-      id: 3,
-      name: '价值投资实践者',
-      description: '价值投资理念交流，基本面分析方法讨论',
-      avatar: '💰',
-      members: 2345,
-      posts: 5678,
-      isOwner: false,
-      isAdmin: false,
-      unread: 2
+  const fetchGroups = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const params = {}
+      if (searchQuery) params.q = searchQuery
+      const res = await groupsService.getGroups(params)
+      const items = Array.isArray(res) ? res : res.items || []
+      const mapped = items.map((g, idx) => ({
+        id: g.group_id || g.id,
+        name: g.name,
+        description: g.description,
+        avatar: getEmoji(idx),
+        members: g.member_count || g.members || 0,
+        posts: g.post_count || g.posts || 0,
+        type: g.access_level === 'PRIVATE' ? 'private' : 'public',
+        needApproval: g.access_level === 'NEED_APPROVAL',
+        isOwner: g.is_owner || false,
+        isAdmin: g.is_admin || false,
+        unread: g.unread_count || 0,
+      }))
+      setMyGroups(mapped)
+      setDiscoverGroups(mapped)
+    } catch (err) {
+      console.error('Failed to fetch groups:', err)
+      setError(err.message || '获取群组列表失败')
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
-  const discoverGroups = [
-    {
-      id: 4,
-      name: '新能源投资圈',
-      description: '新能源产业链投资机会分析',
-      avatar: '⚡',
-      members: 3456,
-      posts: 7890,
-      type: 'public',
-      needApproval: false
-    },
-    {
-      id: 5,
-      name: '港股通投资群',
-      description: '港股通标的讨论和投资策略',
-      avatar: '🇭🇰',
-      members: 1567,
-      posts: 3456,
-      type: 'public',
-      needApproval: true
-    },
-    {
-      id: 6,
-      name: '美股ETF投资',
-      description: '美股ETF投资策略和标的分析',
-      avatar: '🇺🇸',
-      members: 2345,
-      posts: 4567,
-      type: 'public',
-      needApproval: false
-    },
-    {
-      id: 7,
-      name: 'REITs投资研究',
-      description: '不动产投资信托基金投资研究',
-      avatar: '🏢',
-      members: 876,
-      posts: 1234,
-      type: 'private',
-      needApproval: true
-    }
-  ]
+  useEffect(() => {
+    fetchGroups()
+  }, [searchQuery])
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-center py-20">
+          <Loader className="h-8 w-8 animate-spin text-primary-600" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <p className="text-red-600">{error}</p>
+          <button onClick={fetchGroups} className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+            重新加载
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -137,6 +128,8 @@ export default function Groups() {
           <input
             type="text"
             placeholder="搜索群组..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
@@ -228,7 +221,7 @@ export default function Groups() {
       {activeTab === 'manage' && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200">
           <div className="divide-y divide-gray-100">
-            {myGroups.filter(g => g.isOwner || g.isAdmin).map((group) => (
+            {myGroups.map((group) => (
               <div key={group.id} className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4">

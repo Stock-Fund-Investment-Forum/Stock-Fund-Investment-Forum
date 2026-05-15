@@ -47,8 +47,8 @@ export default defineConfig({
             ) {
               return 'react-vendor';
             }
-            if (id.includes('clsx') || id.includes('tailwind-merge')) {
-              return 'utils';
+            if (id.includes('lucide-react')) {
+              return 'icons';
             }
           }
           return undefined;

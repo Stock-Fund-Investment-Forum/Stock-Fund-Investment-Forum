@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { Search as SearchIcon, Filter, Clock, TrendingUp, FileText, User, Loader } from 'lucide-react'
 import { postsService, usersService, stocksService } from '../services'
 
-export default function SearchPage() {
+export default function Search() {
   const [searchParams] = useSearchParams()
   const query = searchParams.get('q') || ''
   const [activeTab, setActiveTab] = useState('posts')

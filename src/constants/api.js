@@ -58,6 +58,7 @@ export const API_ENDPOINTS = {
 
   // ========== Groups ==========
   GET_GROUPS: '/groups',
+  GET_GROUP: '/groups/:groupId',
   CREATE_GROUP: '/groups',
 
   // ========== Stocks ==========

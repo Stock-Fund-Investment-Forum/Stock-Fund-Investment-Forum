@@ -1,27 +1,48 @@
 import { useParams, Link } from 'react-router-dom'
-import { useState } from 'react'
-import { Users, FileText, MessageSquare, Star, Settings, Plus, Search, Send, Lock, Globe, TrendingUp } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Users, FileText, MessageSquare, Star, Settings, Plus, Search, Send, Lock, Globe, TrendingUp, Loader } from 'lucide-react'
+import { groupsService } from '../../services'
 
 export default function GroupDetail() {
   const { groupId } = useParams()
-  const [activeTab, setActiveTab] = useState('posts') // 'posts', 'files', 'members', 'polls'
+  const [activeTab, setActiveTab] = useState('posts')
   const [postText, setPostText] = useState('')
+  const [group, setGroup] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const group = {
-    id: groupId,
-    name: '半导体投资研究组',
-    description: '专注半导体行业投资研究，分享行业报告和投资机会',
-    avatar: '💾',
-    cover: '🔬',
-    members: 1234,
-    posts: 4567,
-    files: 234,
-    type: 'public',
-    isOwner: false,
-    isAdmin: true,
-    isMember: true,
-    createdAt: '2023-06-15'
-  }
+  const EMOJI_COVER = ['🔬', '🚀', '📊', '💰', '🏭', '🌍', '🎯', '🤖']
+
+  useEffect(() => {
+    const fetchGroup = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await groupsService.getGroup(groupId)
+        setGroup({
+          id: data.group_id || data.id,
+          name: data.name,
+          description: data.description,
+          avatar: '💾',
+          cover: EMOJI_COVER[Math.floor(Math.random() * EMOJI_COVER.length)],
+          members: data.member_count || data.members || 0,
+          posts: data.post_count || data.posts || 0,
+          files: data.file_count || 0,
+          type: data.access_level === 'PRIVATE' ? 'private' : 'public',
+          isOwner: data.is_owner || false,
+          isAdmin: data.is_admin || false,
+          isMember: data.is_member || true,
+          createdAt: data.created_at ? new Date(data.created_at).toLocaleDateString() : '未知',
+        })
+      } catch (err) {
+        console.error('Failed to fetch group:', err)
+        setError(err.message || '获取群组信息失败')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchGroup()
+  }, [groupId])
 
   const posts = [
     {
@@ -85,6 +106,29 @@ export default function GroupDetail() {
     setPostText('')
   }
 
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-center py-20">
+          <Loader className="h-8 w-8 animate-spin text-primary-600" />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <p className="text-red-600">{error}</p>
+          <Link to="/groups" className="mt-4 inline-block px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+            返回群组列表
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       {/* Group Header */}
@@ -138,7 +182,7 @@ export default function GroupDetail() {
               <div className="text-sm text-gray-500">文件</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-gray-900">公开</div>
+              <div className="text-2xl font-bold text-gray-900">{group.type === 'public' ? '公开' : '私密'}</div>
               <div className="text-sm text-gray-500">群组类型</div>
             </div>
           </div>
