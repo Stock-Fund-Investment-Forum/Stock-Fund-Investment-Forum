@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 from datetime import datetime
 
 
@@ -16,6 +16,8 @@ class UserCreate(UserBase):
 
 
 class UserOut(UserBase):
+    model_config = ConfigDict(from_attributes=True)
+
     user_id: str
     auth_level: Optional[str]
     status: Optional[str]
@@ -24,9 +26,6 @@ class UserOut(UserBase):
     influence_value: Optional[float]
     is_deleted: Optional[bool]
     created_at: Optional[datetime]
-
-    class Config:
-        orm_mode = True
 
 
 class Token(BaseModel):

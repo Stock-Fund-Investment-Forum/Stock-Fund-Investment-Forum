@@ -13,6 +13,14 @@ def get_user_by_email(db: Session, email: str):
     )
 
 
+def get_user_by_nickname(db: Session, nickname: str):
+    return (
+        db.query(models.User)
+        .filter(models.User.nickname == nickname, models.User.is_deleted == False)
+        .first()
+    )
+
+
 def get_user(db: Session, user_id: str):
     return (
         db.query(models.User)

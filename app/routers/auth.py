@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -13,7 +14,19 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = crud.get_user_by_email(db, email=user.email)
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    db_user = crud.create_user(db, user=user)
+
+    existing_nickname = crud.get_user_by_nickname(db, nickname=user.nickname)
+    if existing_nickname:
+        raise HTTPException(status_code=400, detail="Nickname already taken")
+
+    try:
+        db_user = crud.create_user(db, user=user)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Email or nickname already exists",
+        )
     return db_user
 
 

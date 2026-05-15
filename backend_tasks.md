@@ -9,12 +9,12 @@
 
 ## 优先级任务（按执行顺序）
 
-1. **认证与授权（Auth）**
+1. **认证与授权（Auth）（已完成）**
    - 描述：实现注册、登录、JWT 鉴权、权限校验、Token 刷新与注销。
    - 依据：见 [api/openapi.yaml](api/openapi.yaml) 中 `auth` 标签与 `bearerAuth` securitySchemes。
    - 验收标准：`/auth/register`、`/auth/login` 正常返回；受保护接口需验证 JWT；错误码规范。
    - 预估：2-3 天
-
+    [使用教程](use\login\use_log.md)
 2. **用户模块（Users）**
    - 描述：用户 CRUD、分页查询、资料更新、账号状态管理、关注关系。
    - 依据：数据库表 `users`, `authentication`, `user_follows`（见 [database_schema.sql](database_schema.sql)）。

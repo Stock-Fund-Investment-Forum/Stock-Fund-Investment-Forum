@@ -36,3 +36,4 @@ prompts.*
 
 *.env
 .venv/
+.pytest_cache/

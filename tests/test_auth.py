@@ -1,14 +1,21 @@
+import os
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
 
 from app.main import app
 from app.database import Base, get_db
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+SQLALCHEMY_DATABASE_URL = "sqlite+pysqlite:///:memory:"
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
@@ -55,3 +62,26 @@ def test_register_and_login(client: TestClient):
     me = client.get("/users/me", headers=headers)
     assert me.status_code == 200
     assert me.json()["email"] == email
+
+
+def test_register_duplicate_nickname_returns_400(client: TestClient):
+    first = client.post(
+        "/auth/register",
+        json={
+            "nickname": "dupname",
+            "email": "dup1@example.com",
+            "password": "strongpassword",
+        },
+    )
+    assert first.status_code == 201
+
+    second = client.post(
+        "/auth/register",
+        json={
+            "nickname": "dupname",
+            "email": "dup2@example.com",
+            "password": "strongpassword",
+        },
+    )
+    assert second.status_code == 400
+    assert second.json()["detail"] == "Nickname already taken"
