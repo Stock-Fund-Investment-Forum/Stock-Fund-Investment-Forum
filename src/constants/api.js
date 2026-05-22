@@ -3,8 +3,8 @@
  * Based on backend_api.md and OpenAPI 3.0 specification
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || '/api/v1';
+const API_URL = import.meta.env.VITE_API_URL || '';
+const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || '';
 
 export const API_BASE_URL = `${API_URL}${API_BASE_PATH}`;
 

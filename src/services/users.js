@@ -32,8 +32,8 @@ export const getUser = async (userId) => {
  * Create user (admin or registration)
  * @param {object} userData - User data
  * @param {string} userData.nickname - User nickname
- * @param {string} userData.email - User email
- * @param {string} userData.phone - User phone (optional)
+ * @param {string} userData.email - User email (optional if phone provided)
+ * @param {string} userData.phone - User phone (optional if email provided)
  * @param {string} userData.password - User password
  * @returns {Promise} Created user
  */

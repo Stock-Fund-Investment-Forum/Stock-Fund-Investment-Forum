@@ -4,7 +4,9 @@ import { User, Lock, ArrowRight, Shield, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Register() {
+  const [registerType, setRegisterType] = useState('email'); // 'email' or 'phone'
   const [formData, setFormData] = useState({
+    email: '',
     phone: '',
     code: '',
     password: '',
@@ -39,9 +41,16 @@ export default function Register() {
   const handleSendCode = () => {
     setError('');
 
-    if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
-      setError('请输入有效的手机号码');
-      return;
+    if (registerType === 'phone') {
+      if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
+        setError('请输入有效的手机号码');
+        return;
+      }
+    } else {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        setError('请输入有效的邮箱地址');
+        return;
+      }
     }
 
     if (timerRef.current) {
@@ -69,9 +78,17 @@ export default function Register() {
 
     setError('');
 
-    if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
-      setError('请输入有效的手机号码');
-      return;
+    // Validate based on registration type
+    if (registerType === 'phone') {
+      if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
+        setError('请输入有效的手机号码');
+        return;
+      }
+    } else {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+        setError('请输入有效的邮箱地址');
+        return;
+      }
     }
 
     if (!codeSent || !/^[0-9]{6}$/.test(formData.code.trim())) {
@@ -95,8 +112,17 @@ export default function Register() {
     }
 
     try {
-      const username = `用户${formData.phone.slice(-4)}`;
-      await register(formData.phone.trim(), formData.password, username);
+      const identifier = registerType === 'phone' ? formData.phone.trim() : formData.email.trim();
+      const username = registerType === 'phone' 
+        ? `用户${formData.phone.slice(-4)}`
+        : formData.email.split('@')[0];
+      
+      await register({
+        nickname: username,
+        email: registerType === 'email' ? formData.email.trim() : undefined,
+        phone: registerType === 'phone' ? formData.phone.trim() : undefined,
+        password: formData.password
+      });
       navigate(from);
       setTimeout(() => {
         window.scrollTo(0, scrollY);
@@ -128,27 +154,90 @@ export default function Register() {
             </div>
           )}
 
+          {/* Registration Type Toggle */}
+          <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg">
+            <button
+              type="button"
+              onClick={() => {
+                setRegisterType('email');
+                setCodeSent(false);
+                setCountdown(0);
+                setError('');
+              }}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                registerType === 'email'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              邮箱注册
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRegisterType('phone');
+                setCodeSent(false);
+                setCountdown(0);
+                setError('');
+              }}
+              className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                registerType === 'phone'
+                  ? 'bg-white text-primary-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              手机注册
+            </button>
+          </div>
+
           <div className="space-y-4">
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                手机号
-              </label>
-              <div className="mt-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-gray-400" />
+            {/* Email Input */}
+            {registerType === 'email' && (
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  邮箱地址
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    className="appearance-none relative block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="请输入邮箱地址"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
                 </div>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  required
-                  className="appearance-none relative block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                  placeholder="请输入手机号"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
               </div>
-            </div>
+            )}
+
+            {/* Phone Input */}
+            {registerType === 'phone' && (
+              <div>
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+                  手机号
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    required
+                    className="appearance-none relative block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    placeholder="请输入手机号"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
 
             <div>
               <label htmlFor="code" className="block text-sm font-medium text-gray-700">

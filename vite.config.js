@@ -17,7 +17,7 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 6789,
     open: true,
     cors: true,
     proxy: {
