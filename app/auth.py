@@ -40,7 +40,7 @@ def get_current_user(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
+        user_id: str = payload.get("sub") # type: ignore
         if user_id is None:
             raise credentials_exception
     except JWTError:
@@ -49,3 +49,5 @@ def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+  
+  
