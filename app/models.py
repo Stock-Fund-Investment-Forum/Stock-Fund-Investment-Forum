@@ -9,13 +9,28 @@ from sqlalchemy import (
     DECIMAL,
     Text,
     Enum as SAEnum,
+    Table,
     ForeignKey,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 # use generic SQLAlchemy Enum for cross-db compatibility
-from .database import Base
+from app.database import Base
+from sqlalchemy import UniqueConstraint
+from sqlalchemy.orm import relationship
+
+class ContentType(enum.Enum):
+    POST = "POST"
+    COMMENT = "COMMENT"
+    STOCK_INFO = "STOCK_INFO"
+
+
+class EngagementType(enum.Enum):
+    LIKE = "LIKE"
+    SHARE = "SHARE"
+    REPORT = "REPORT"
+    BOOKMARK = "BOOKMARK"
 
 
 class AuthLevel(enum.Enum):
@@ -381,4 +396,100 @@ class Violation(Base):
         String(36), ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True
     )
     resolved_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# association table for follows — defined so SQLAlchemy can create it in tests
+user_follows = Table(
+    "user_follows",
+    Base.metadata,
+    Column("follower_id", String(36), ForeignKey("users.user_id"), primary_key=True),
+    Column("following_id", String(36), ForeignKey("users.user_id"), primary_key=True),
+    Column("created_at", DateTime(timezone=True), server_default=func.now()),
+)
+
+
+class Attachment(Base):
+    __tablename__ = "attachments"
+
+    attachment_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    post_id = Column(String(36), nullable=False)
+    user_id = Column(String(36), nullable=False)
+    filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    file_type = Column(String(50))
+    file_size = Column(Integer)
+    audit_status = Column(String(20), default="PENDING")
+    is_deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Poll(Base):
+    __tablename__ = "polls"
+
+    poll_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    post_id = Column(String(36), nullable=False)
+    question = Column(String(255), nullable=False)
+    total_votes = Column(Integer, default=0)
+    status = Column(String(20), default="ACTIVE")
+    allow_multiple = Column(Boolean, default=False)
+    allow_revote = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    end_time = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class PollOption(Base):
+    __tablename__ = "poll_options"
+
+    option_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    poll_id = Column(String(36), nullable=False)
+    text = Column(String(255), nullable=False)
+    vote_count = Column(Integer, default=0)
+    display_order = Column(Integer)
+
+
+class PollVote(Base):
+    __tablename__ = "poll_votes"
+
+    vote_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), nullable=False)
+    option_id = Column(String(36), nullable=False)
+    poll_id = Column(String(36), nullable=False)
+    voted_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+
+
+class Message(Base):
+    __tablename__ = "messages"
+
+    message_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    sender_id = Column(String(36), nullable=False)
+    recipient_id = Column(String(36), nullable=False)
+    content = Column(Text, nullable=False)
+    is_read = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class NotificationType(enum.Enum):
+    COMMENT_REPLY = "COMMENT_REPLY"
+    POST_LIKE = "POST_LIKE"
+    MESSAGE = "MESSAGE"
+    SYSTEM = "SYSTEM"
+    FOLLOW = "FOLLOW"
+    MENTION = "MENTION"
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    notification_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), nullable=False)
+    type = Column(
+        SAEnum(NotificationType, values_callable=lambda x: [e.value for e in NotificationType], native_enum=False)
+    )
+    content = Column(String(500))
+    is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

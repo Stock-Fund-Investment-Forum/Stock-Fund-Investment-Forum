@@ -3,8 +3,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 
-from .. import crud, schemas, auth
-from ..database import get_db
+from app import crud, schemas, auth
+from app.database import get_db
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

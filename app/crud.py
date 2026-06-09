@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func,text
 from . import models, schemas
 from passlib.context import CryptContext
 
@@ -53,6 +53,268 @@ def create_user(db: Session, user: schemas.UserCreate):
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
+
+
+def update_user(db: Session, user_id: str, user: schemas.UserBase):
+    db_user = db.query(models.User).filter(models.User.user_id == user_id, models.User.is_deleted == False).first()
+    if not db_user:
+        return None
+    for field, value in user.model_dump(exclude_unset=True).items():
+        setattr(db_user, field, value)
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+
+def soft_delete_user(db: Session, user_id: str):
+    db_user = db.query(models.User).filter(models.User.user_id == user_id, models.User.is_deleted == False).first()
+    if not db_user:
+        return False
+    db_user.is_deleted = True
+    db.add(db_user)
+    db.commit()
+    return True
+
+
+def follow_user(db: Session, follower_id: str, following_id: str):
+    # prevent duplicates
+    exists = (
+        db.execute(
+            text("SELECT 1 FROM user_follows WHERE follower_id = :f AND following_id = :t"),
+            {"f": follower_id, "t": following_id},
+        )
+        .first()
+    )
+    if exists:
+        return False
+    db.execute(
+        text("INSERT INTO user_follows (follower_id, following_id) VALUES (:f, :t)"),
+        {"f": follower_id, "t": following_id},
+    )
+    db.commit()
+    return True
+
+
+def unfollow_user(db: Session, follower_id: str, following_id: str):
+    db.execute(
+        text("DELETE FROM user_follows WHERE follower_id = :f AND following_id = :t"),
+        {"f": follower_id, "t": following_id},
+    )
+    db.commit()
+    return True
+
+
+# ------------------- Attachments -------------------
+def create_attachment_record(db: Session, user_id: str, post_id: str, filename: str, file_path: str, file_type: str = None, file_size: int = None):
+    from .models import Attachment
+
+    att = Attachment(
+        post_id=post_id,
+        user_id=user_id,
+        filename=filename,
+        file_path=file_path,
+        file_type=file_type,
+        file_size=file_size,
+    )
+    db.add(att)
+    db.commit()
+    db.refresh(att)
+    return att
+
+
+# ------------------- Polls -------------------
+def create_poll(db: Session, poll_in):
+    from .models import Poll, PollOption
+
+    poll = Poll(
+        post_id=poll_in.post_id, question=poll_in.question, allow_multiple=poll_in.allow_multiple
+    )
+    db.add(poll)
+    db.flush()
+    # create options
+    for idx, opt in enumerate(poll_in.options):
+        po = PollOption(poll_id=poll.poll_id, text=opt.text, display_order=idx)
+        db.add(po)
+    db.commit()
+    db.refresh(poll)
+    return poll
+
+
+def get_poll(db: Session, poll_id: str):
+    from .models import Poll
+
+    return db.query(Poll).filter(Poll.poll_id == poll_id).first()
+
+
+def get_poll_with_options(db: Session, poll_id: str):
+    from .models import Poll, PollOption
+
+    poll = db.query(Poll).filter(Poll.poll_id == poll_id).first()
+    if not poll:
+        return None
+    options = db.query(PollOption).filter(PollOption.poll_id == poll.poll_id).order_by(PollOption.display_order).all()
+    poll.options = options
+    return poll
+
+
+def vote_poll(db: Session, user_id: str, poll_id: str, option_id: str):
+    """Cast a vote; prevents duplicate voting per poll when allow_multiple is False."""
+    from .models import PollVote, PollOption, Poll
+
+    # load poll and check
+    poll = db.query(Poll).filter(Poll.poll_id == poll_id).with_for_update().first()
+    if not poll:
+        return None
+
+    if not poll.allow_multiple:
+        prior = db.query(PollVote).filter(PollVote.user_id == user_id, PollVote.poll_id == poll_id).first()
+        if prior:
+            return False
+
+    # ensure not already voted same option
+    exists = db.query(PollVote).filter(PollVote.user_id == user_id, PollVote.option_id == option_id).first()
+    if exists:
+        return False
+
+    # create vote
+    vote = PollVote(user_id=user_id, option_id=option_id, poll_id=poll_id)
+    db.add(vote)
+
+    opt = db.query(PollOption).filter(PollOption.option_id == option_id).with_for_update().first()
+    if not opt:
+        return None
+    opt.vote_count = (opt.vote_count or 0) + 1
+    db.add(opt)
+
+    if poll:
+        poll.total_votes = (poll.total_votes or 0) + 1
+        db.add(poll)
+
+    db.commit()
+    return True
+
+
+# ------------------- Engagements -------------------
+def add_engagement(db: Session, user_id: str, content_id: str, content_type: str, engagement_type: str):
+    from .models import Engagement
+
+    exists = (
+        db.query(Engagement)
+        .filter(
+            Engagement.user_id == user_id,
+            Engagement.content_id == content_id,
+            Engagement.engagement_type == engagement_type,
+        )
+        .first()
+    )
+    if exists:
+        return False
+    e = Engagement(
+        user_id=user_id, content_id=content_id, content_type=content_type, engagement_type=engagement_type
+    )
+    db.add(e)
+    db.commit()
+    db.refresh(e)
+    return True
+
+
+def remove_engagement(db: Session, user_id: str, content_id: str, engagement_type: str):
+    from .models import Engagement
+    db.query(Engagement).filter(
+        Engagement.user_id == user_id,
+        Engagement.content_id == content_id,
+        Engagement.engagement_type == engagement_type,
+    ).delete()
+    db.commit()
+    return True
+
+
+# ------------------- Messages & Notifications -------------------
+def send_message(db: Session, sender_id: str, recipient_id: str, content: str):
+    from .models import Message
+
+    msg = Message(sender_id=sender_id, recipient_id=recipient_id, content=content)
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    return msg
+
+
+def get_conversation_messages(db: Session, user_id: str, other_user_id: str, page: int = 1, per_page: int = 50):
+    from .models import Message
+
+    offset = (page - 1) * per_page
+    msgs = (
+        db.query(Message)
+        .filter(
+            ((Message.sender_id == user_id) & (Message.recipient_id == other_user_id))
+            | ((Message.sender_id == other_user_id) & (Message.recipient_id == user_id))
+        )
+        .order_by(Message.created_at.asc())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+    return msgs
+
+
+def mark_messages_read(db: Session, recipient_id: str, sender_id: str = None):
+    from .models import Message
+
+    q = db.query(Message).filter(Message.recipient_id == recipient_id, Message.is_read == False)
+    if sender_id:
+        q = q.filter(Message.sender_id == sender_id)
+    q.update({Message.is_read: True})
+    db.commit()
+    return True
+
+
+def count_unread_messages(db: Session, user_id: str):
+    from .models import Message
+
+    return db.query(Message).filter(Message.recipient_id == user_id, Message.is_read == False, Message.is_deleted == False).count()
+
+
+def create_notification(db: Session, user_id: str, type: str, content: str = None):
+    from .models import Notification
+
+    n = Notification(user_id=user_id, type=type, content=content)
+    db.add(n)
+    db.commit()
+    db.refresh(n)
+    return n
+
+
+def list_notifications(db: Session, user_id: str, page: int = 1, per_page: int = 50):
+    from .models import Notification
+
+    offset = (page - 1) * per_page
+    return (
+        db.query(Notification)
+        .filter(Notification.user_id == user_id)
+        .order_by(Notification.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+        .all()
+    )
+
+
+def mark_notifications_read(db: Session, user_id: str, notification_id: str = None):
+    from .models import Notification
+
+    q = db.query(Notification).filter(Notification.user_id == user_id, Notification.is_read == False)
+    if notification_id:
+        q = q.filter(Notification.notification_id == notification_id)
+    q.update({Notification.is_read: True})
+    db.commit()
+    return True
+
+
+def count_unread_notifications(db: Session, user_id: str):
+    from .models import Notification
+
+    return db.query(Notification).filter(Notification.user_id == user_id, Notification.is_read == False).count()
 
 
 # =====================================================

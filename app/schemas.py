@@ -3,7 +3,7 @@ from typing import Optional, List
 from pydantic import BaseModel, ConfigDict, EmailStr
 from pydantic import field_validator
 from datetime import datetime
-
+from app.models import AuthLevel, UserStatus
 
 class BoardCategory(str, enum.Enum):
     GENERAL = "GENERAL"
@@ -31,8 +31,8 @@ class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
     user_id: str
-    auth_level: Optional[str]
-    status: Optional[str]
+    auth_level: Optional[AuthLevel]
+    status: Optional[UserStatus]
     level: Optional[int]
     points: Optional[int]
     influence_value: Optional[float]
@@ -48,6 +48,106 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: Optional[str] = None
 
+class AttachmentCreate(BaseModel):
+    post_id: str
+    filename: str
+    file_type: Optional[str] = None
+    file_size: Optional[int] = None
+
+
+class AttachmentOut(BaseModel):
+    attachment_id: str
+    post_id: str
+    user_id: str
+    filename: str
+    file_path: str
+    file_type: Optional[str]
+    file_size: Optional[int]
+    created_at: Optional[datetime]
+    model_config = {"from_attributes": True}
+
+
+class PollOptionIn(BaseModel):
+    text: str
+
+
+class PollOptionOut(BaseModel):
+    option_id: str
+    text: str
+    vote_count: int
+    display_order: int
+    model_config = {"from_attributes": True}
+
+
+class PollCreate(BaseModel):
+    post_id: str
+    question: str
+    options: list[PollOptionIn]
+    allow_multiple: Optional[bool] = False
+
+
+class PollOut(BaseModel):
+    poll_id: str
+    post_id: str
+    question: str
+    total_votes: int
+    status: Optional[str]
+    allow_multiple: Optional[bool]
+    end_time: Optional[datetime]
+    created_at: Optional[datetime]
+    options: Optional[list[PollOptionOut]] = []
+    model_config = {"from_attributes": True}
+
+
+class PollVoteIn(BaseModel):
+    option_id: str
+
+
+class EngagementIn(BaseModel):
+    content_id: str
+    content_type: str
+    engagement_type: str
+
+
+class EngagementOut(BaseModel):
+    engagement_id: str
+    user_id: str
+    content_id: str
+    content_type: str
+    engagement_type: str
+    created_at: Optional[datetime]
+    model_config = {"from_attributes": True}
+
+
+class MessageCreate(BaseModel):
+    recipient_id: str
+    content: str
+
+
+class MessageOut(BaseModel):
+    message_id: str
+    sender_id: str
+    recipient_id: str
+    content: str
+    is_read: bool
+    created_at: Optional[datetime]
+    model_config = {"from_attributes": True}
+
+
+class NotificationOut(BaseModel):
+    notification_id: str
+    user_id: str
+    type: str
+    content: Optional[str]
+    is_read: bool
+    created_at: Optional[datetime]
+    model_config = {"from_attributes": True}
+
+
+class NotificationCreate(BaseModel):
+    user_id: str
+    type: str
+    content: Optional[str] = None
 
 # =====================================================
 # 社区内容 Schemas

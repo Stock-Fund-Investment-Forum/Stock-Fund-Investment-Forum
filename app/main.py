@@ -7,6 +7,11 @@ from .routers import (
     auth as auth_router,
     users as users_router,
     boards as boards_router,
+    attachments as attachments_router,
+    polls as polls_router,
+    engagements as engagements_router,
+    messages as messages_router,
+    notifications as notifications_router,
     posts as posts_router,
     comments as comments_router,
     tags as tags_router,
@@ -42,6 +47,11 @@ def on_startup() -> None:
 
 app.include_router(auth_router.router)
 app.include_router(users_router.router)
+app.include_router(attachments_router.router)
+app.include_router(polls_router.router)
+app.include_router(engagements_router.router)
+app.include_router(messages_router.router)
+app.include_router(notifications_router.router)
 app.include_router(boards_router.router)
 app.include_router(posts_router.router)
 app.include_router(comments_router.router)
