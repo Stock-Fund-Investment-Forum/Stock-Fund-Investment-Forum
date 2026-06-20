@@ -16,11 +16,11 @@ def register_and_auth(client: TestClient):
     email = f"poster-{suffix}@example.com"
     password = "pass1234"
     resp = client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={"nickname": f"poster-{suffix}", "email": email, "password": password},
     )
     assert resp.status_code == 201
-    resp2 = client.post("/auth/login", data={"username": email, "password": password})
+    resp2 = client.post("/api/v1/auth/login", data={"username": email, "password": password})
     assert resp2.status_code == 200
     token = resp2.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
@@ -31,14 +31,14 @@ def test_post_lifecycle(client: TestClient):
 
     # create board
     b = client.post(
-        "/boards", json={"name": "TestBoard", "category": "GENERAL"}, headers=headers
+        "/api/v1/boards", json={"name": "TestBoard", "category": "GENERAL"}, headers=headers
     )
     assert b.status_code == 201
     board_id = b.json()["board_id"]
 
     # create post
     p = client.post(
-        "/posts",
+        "/api/v1/posts",
         json={"title": "Hello", "content": "World", "board_id": board_id},
         headers=headers,
     )
@@ -47,26 +47,26 @@ def test_post_lifecycle(client: TestClient):
     post_id = post["post_id"]
 
     # get post increases view
-    g = client.get(f"/posts/{post_id}")
+    g = client.get(f"/api/v1/posts/{post_id}")
     assert g.status_code == 200
     assert g.json()["view_count"] == 1
 
     # list posts
-    lst = client.get("/posts")
+    lst = client.get("/api/v1/posts")
     assert lst.status_code == 200
     assert any(x["post_id"] == post_id for x in lst.json())
 
     # like
-    like = client.post(f"/posts/{post_id}/like", headers=headers)
+    like = client.post(f"/api/v1/posts/{post_id}/like", headers=headers)
     assert like.status_code == 200
-    gp = client.get(f"/posts/{post_id}")
+    gp = client.get(f"/api/v1/posts/{post_id}")
     assert gp.status_code == 200
     assert gp.json()["like_count"] == 1
 
     # unlike
-    unlike = client.post(f"/posts/{post_id}/unlike", headers=headers)
+    unlike = client.post(f"/api/v1/posts/{post_id}/unlike", headers=headers)
     assert unlike.status_code == 200
-    gp2 = client.get(f"/posts/{post_id}")
+    gp2 = client.get(f"/api/v1/posts/{post_id}")
     assert gp2.status_code == 200
     assert gp2.json()["like_count"] == 0
 
@@ -75,26 +75,26 @@ def test_delete_post_sets_deleted_flags(client: TestClient):
     headers = register_and_auth(client)
 
     b = client.post(
-        "/boards", json={"name": "DeleteBoard", "category": "GENERAL"}, headers=headers
+        "/api/v1/boards", json={"name": "DeleteBoard", "category": "GENERAL"}, headers=headers
     )
     assert b.status_code == 201
     board_id = b.json()["board_id"]
 
     p = client.post(
-        "/posts",
+        "/api/v1/posts",
         json={"title": "To delete", "content": "Body", "board_id": board_id},
         headers=headers,
     )
     assert p.status_code == 201
     post_id = p.json()["post_id"]
 
-    deleted = client.delete(f"/posts/{post_id}", headers=headers)
+    deleted = client.delete(f"/api/v1/posts/{post_id}", headers=headers)
     assert deleted.status_code == 200
 
-    detail = client.get(f"/posts/{post_id}")
+    detail = client.get(f"/api/v1/posts/{post_id}")
     assert detail.status_code == 404
 
-    all_posts = client.get("/posts?include_deleted=true")
+    all_posts = client.get("/api/v1/posts?include_deleted=true")
     assert all_posts.status_code == 200
     deleted_post = next(x for x in all_posts.json() if x["post_id"] == post_id)
     assert deleted_post["status"] == "DELETED"

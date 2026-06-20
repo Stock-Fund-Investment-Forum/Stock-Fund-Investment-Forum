@@ -493,3 +493,76 @@ class Notification(Base):
     content = Column(String(500))
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class GroupAccessLevel(enum.Enum):
+        PUBLIC = "PUBLIC"
+        PRIVATE = "PRIVATE"
+        NEED_APPROVAL = "NEED_APPROVAL"
+    
+    
+class Group(Base):
+        __tablename__ = "groups"
+    
+        group_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+        owner_id = Column(String(36), ForeignKey("users.user_id", ondelete="SET NULL"), nullable=True)
+        name = Column(String(100), nullable=False)
+        description = Column(Text)
+        access_level = Column(
+            SAEnum(
+                GroupAccessLevel,
+                values_callable=lambda x: [e.value for e in GroupAccessLevel],
+                native_enum=False,
+            ),
+            default=GroupAccessLevel.PUBLIC,
+        )
+        member_count = Column(Integer, default=0)
+        post_count = Column(Integer, default=0)
+        file_count = Column(Integer, default=0)
+        is_deleted = Column(Boolean, default=False)
+        created_at = Column(DateTime(timezone=True), server_default=func.now())
+        updated_at = Column(
+            DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        )
+    
+        members = relationship("GroupMembership", backref="group")    
+
+class GroupMembership(Base):
+    __tablename__ = "group_memberships"
+
+    group_id = Column(
+        String(36), ForeignKey("groups.group_id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id = Column(
+        String(36), ForeignKey("users.user_id", ondelete="CASCADE"), primary_key=True
+    )
+    role = Column(String(32), default="MEMBER")
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Certification(Base):
+    __tablename__ = "certifications"
+
+    cert_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    cert_type = Column(String(64), nullable=False)
+    file_path = Column(String(255))
+    description = Column(Text)
+    status = Column(String(32), default="PENDING")
+    admin_remark = Column(String(255))
+    reviewed_by = Column(String(36), ForeignKey("users.user_id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class RiskAssessment(Base):
+    __tablename__ = "risk_assessments"
+
+    assessment_id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
+    answers = Column(Text)
+    score = Column(Integer, default=0)
+    risk_level = Column(String(32))
+    status = Column(String(32), default="PENDING")
+    reviewed_by = Column(String(36), ForeignKey("users.user_id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

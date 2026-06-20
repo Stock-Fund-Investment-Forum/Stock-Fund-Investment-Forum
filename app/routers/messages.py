@@ -8,6 +8,52 @@ from app.schemas import MessageCreate, MessageOut
 router = APIRouter(prefix="/messages", tags=["messages"])
 
 
+@router.get("", response_model=list[dict])
+def list_conversations(current_user=Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    from app.models import Message, User
+    all_msgs = (
+        db.query(Message)
+        .filter(
+            (Message.sender_id == current_user.user_id) | (Message.recipient_id == current_user.user_id)
+        )
+        .order_by(Message.created_at.desc())
+        .all()
+    )
+    seen = set()
+    partner_ids = []
+    for msg in all_msgs:
+        other = msg.recipient_id if msg.sender_id == current_user.user_id else msg.sender_id
+        if other not in seen:
+            seen.add(other)
+            partner_ids.append(other)
+
+    result = []
+    for pid in partner_ids:
+        partner = db.query(User).filter(User.user_id == pid).first()
+        if not partner:
+            continue
+        last_msg = (
+            db.query(Message)
+            .filter(
+                ((Message.sender_id == current_user.user_id) & (Message.recipient_id == pid))
+                | ((Message.sender_id == pid) & (Message.recipient_id == current_user.user_id))
+            )
+            .order_by(Message.created_at.desc())
+            .first()
+        )
+        unread = crud.count_unread_messages(db, current_user.user_id)
+        result.append({
+            "partner_id": pid,
+            "partner_nickname": partner.nickname,
+            "partner_avatar": partner.avatar,
+            "last_message": last_msg.content if last_msg else "",
+            "last_time": last_msg.created_at.isoformat() if last_msg else None,
+            "unread_count": unread,
+        })
+
+    return result
+
+
 @router.post("", response_model=MessageOut, status_code=201)
 def send_message(m: MessageCreate, current_user=Depends(auth.get_current_user), db: Session = Depends(get_db)):
     # ensure recipient exists

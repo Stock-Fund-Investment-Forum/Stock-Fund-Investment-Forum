@@ -2,10 +2,21 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from .. import crud, schemas, auth
+from .. import crud, schemas, auth, models
 from ..database import get_db
 
 router = APIRouter(prefix="/comments", tags=["comments"])
+
+
+def enrich_comments_with_nicknames(db: Session, comments):
+    user_ids = list(set(c.user_id for c in comments if c.user_id))
+    if not user_ids:
+        return comments
+    users = db.query(models.User).filter(models.User.user_id.in_(user_ids)).all()
+    user_map = {u.user_id: u.nickname for u in users}
+    for c in comments:
+        c.user_nickname = user_map.get(c.user_id, c.user_id[:8])
+    return comments
 
 
 @router.get("", response_model=List[schemas.CommentOut])
@@ -33,7 +44,7 @@ def list_comments(
         limit=per_page,
         parent_comment_id=parent_comment_id,
     )
-    return comments
+    return enrich_comments_with_nicknames(db, comments)
 
 
 @router.get("/{comment_id}", response_model=schemas.CommentOut)

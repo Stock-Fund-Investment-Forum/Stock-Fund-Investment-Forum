@@ -1,6 +1,6 @@
 import enum
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, model_validator
 from pydantic import field_validator
 from datetime import datetime
 from app.models import AuthLevel, UserStatus
@@ -17,10 +17,16 @@ class BoardCategory(str, enum.Enum):
 
 class UserBase(BaseModel):
     nickname: str
-    email: EmailStr
+    email: Optional[str] = None
     phone: Optional[str] = None
     avatar: Optional[str] = None
     bio: Optional[str] = None
+
+    @model_validator(mode='after')
+    def check_email_or_phone(self):
+        if not self.email and not self.phone:
+            raise ValueError('邮箱或手机号至少填写一个')
+        return self
 
 
 class UserCreate(UserBase):
@@ -231,6 +237,7 @@ class PostOut(PostBase):
 
     post_id: str
     user_id: str
+    user_nickname: Optional[str] = None
     board_id: str
     status: str = "PUBLISHED"
     audit_status: str = "APPROVED"
@@ -271,6 +278,7 @@ class CommentOut(CommentBase):
     post_id: str
     parent_comment_id: Optional[str] = None
     user_id: str
+    user_nickname: Optional[str] = None
     audit_status: str = "APPROVED"
     like_count: int = 0
     is_deleted: bool = False
@@ -360,3 +368,65 @@ class ViolationOut(BaseModel):
     resolved_by: Optional[str]
     resolved_at: Optional[datetime]
     created_at: datetime
+
+class GroupBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    access_level: Optional[str] = "PUBLIC"  # PUBLIC / PRIVATE / NEED_APPROVAL
+
+
+class GroupCreate(GroupBase):
+    pass
+
+
+class GroupOut(GroupBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    group_id: str
+    owner_id: Optional[str]
+    member_count: int = 0
+    post_count: int = 0
+    file_count: int = 0
+    is_owner: bool = False
+    is_admin: bool = False
+    is_member: bool = False
+    unread_count: int = 0
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+
+
+class CertCreate(BaseModel):
+    cert_type: str
+    description: Optional[str] = None
+
+
+class CertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    cert_id: str
+    user_id: str
+    cert_type: str
+    file_path: Optional[str] = None
+    description: Optional[str] = None
+    status: str
+    admin_remark: Optional[str] = None
+    created_at: Optional[datetime]
+
+
+class AnswerItem(BaseModel):
+    question: str
+    answer: str
+
+
+class RiskAssessmentCreate(BaseModel):
+    answers: list[AnswerItem]
+
+
+class RiskAssessmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    assessment_id: str
+    user_id: str
+    answers: Optional[str] = None
+    score: int = 0
+    risk_level: Optional[str] = None
+    status: str
+    created_at: Optional[datetime]

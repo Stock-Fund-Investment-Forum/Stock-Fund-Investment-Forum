@@ -3,10 +3,10 @@ from fastapi.testclient import TestClient
 
 def test_poll_create_and_vote(client: TestClient):
     # register user
-    resp = client.post("/auth/register", json={"nickname": "polluser", "email": "poll@example.com", "password": "pw"})
+    resp = client.post("/api/v1/auth/register", json={"nickname": "polluser", "email": "poll@example.com", "password": "pw"})
     assert resp.status_code == 201
 
-    login = client.post("/auth/login", data={"username": "poll@example.com", "password": "pw"})
+    login = client.post("/api/v1/auth/login", data={"username": "poll@example.com", "password": "pw"})
     assert login.status_code == 200
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
@@ -17,7 +17,7 @@ def test_poll_create_and_vote(client: TestClient):
         "options": [{"text": "A"}, {"text": "B"}],
         "allow_multiple": False,
     }
-    create = client.post("/polls", json=payload, headers=headers)
+    create = client.post("/api/v1/polls", json=payload, headers=headers)
     assert create.status_code == 201
     poll = create.json()
 
@@ -29,9 +29,9 @@ def test_poll_create_and_vote(client: TestClient):
     opt0 = options[0]["option_id"]
 
     # vote for option 0
-    v1 = client.post(f"/polls/{poll_id}/vote", json={"option_id": opt0}, headers=headers)
+    v1 = client.post(f"/api/v1/polls/{poll_id}/vote", json={"option_id": opt0}, headers=headers)
     assert v1.status_code == 200
 
     # attempt double vote (allow_multiple=False) should fail
-    v2 = client.post(f"/polls/{poll_id}/vote", json={"option_id": opt0}, headers=headers)
+    v2 = client.post(f"/api/v1/polls/{poll_id}/vote", json={"option_id": opt0}, headers=headers)
     assert v2.status_code == 400

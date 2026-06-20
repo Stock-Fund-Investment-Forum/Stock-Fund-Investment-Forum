@@ -11,9 +11,15 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=schemas.UserOut, status_code=201)
 def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    existing = crud.get_user_by_email(db, email=user.email)
-    if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    if user.email:
+        existing = crud.get_user_by_email(db, email=user.email)
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+    if user.phone:
+        existing_phone = crud.get_user_by_phone(db, phone=user.phone)
+        if existing_phone:
+            raise HTTPException(status_code=400, detail="Phone already registered")
 
     existing_nickname = crud.get_user_by_nickname(db, nickname=user.nickname)
     if existing_nickname:
@@ -21,12 +27,12 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 
     try:
         db_user = crud.create_user(db, user=user)
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
-        raise HTTPException(
-            status_code=400,
-            detail="Email or nickname already exists",
-        )
+        err_msg = str(e.orig).lower() if e.orig else ""
+        if "email" in err_msg or "unique" in err_msg:
+            raise HTTPException(status_code=400, detail="Email or nickname already exists")
+        raise HTTPException(status_code=400, detail="Registration failed, please try again")
     return db_user
 
 
@@ -35,6 +41,8 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
     user = crud.get_user_by_email(db, email=form_data.username)
+    if not user:
+        user = crud.get_user_by_phone(db, phone=form_data.username)
     if not user or not crud.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect credentials"

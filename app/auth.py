@@ -17,6 +17,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
@@ -49,5 +50,22 @@ def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
+
+def get_optional_user(
+    token: str = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)
+):
+    """可选认证：token 有效时返回用户，无效或缺失时返回 None"""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+        user = crud.get_user(db, user_id=user_id)
+        return user
+    except Exception:
+        return None
   
   

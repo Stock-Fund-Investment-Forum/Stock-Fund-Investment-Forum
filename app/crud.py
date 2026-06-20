@@ -1,9 +1,32 @@
+import uuid
+import re
 from sqlalchemy.orm import Session
 from sqlalchemy import func,text
 from . import models, schemas
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+SENSITIVE_WORDS = ["荐股", "稳赚", "内幕消息", "涨停板", " guaranteed profit", "翻倍", "操盘",
+                   "代客理财", "收费荐股", "黑马", "天天涨停", "必涨", "内部消息", "收益承诺"]
+
+def check_sensitive(content):
+    """检查内容是否含敏感词，返回匹配到的敏感词列表"""
+    if not content:
+        return []
+    found = []
+    for word in SENSITIVE_WORDS:
+        if word in content:
+            found.append(word)
+    return found
+
+
+def add_points(db: Session, user_id: str, points: int):
+    user = db.query(models.User).filter(models.User.user_id == user_id).first()
+    if user:
+        user.points = (user.points or 0) + points
+        user.level = min((user.points or 0) // 100 + 1, 50)
+        db.commit()
 
 
 # =====================================================
@@ -15,6 +38,14 @@ def get_user_by_email(db: Session, email: str):
     return (
         db.query(models.User)
         .filter(models.User.email == email, models.User.is_deleted == False)
+        .first()
+    )
+
+
+def get_user_by_phone(db: Session, phone: str):
+    return (
+        db.query(models.User)
+        .filter(models.User.phone == phone, models.User.is_deleted == False)
         .first()
     )
 
@@ -37,9 +68,14 @@ def get_user(db: Session, user_id: str):
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed = pwd_context.hash(user.password)
+    email = user.email
+    if not email and user.phone:
+        email = f"phone_{user.phone}@placeholder.local"
+    elif not email:
+        email = f"user_{uuid.uuid4().hex[:8]}@placeholder.local"
     db_user = models.User(
         nickname=user.nickname,
-        email=user.email,
+        email=email,
         phone=user.phone,
         avatar=user.avatar,
         bio=user.bio,
@@ -467,6 +503,7 @@ def get_posts(
     user_id: str = None,
     post_type: str = None,
     tag_id: str = None,
+    q: str = None,
     include_deleted: bool = False,
     order_by: str = "created_at",  # 'hot', 'created_at'
 ):
@@ -485,6 +522,11 @@ def get_posts(
         query = query.filter(models.Post.user_id == user_id)
     if post_type:
         query = query.filter(models.Post.post_type == post_type)
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            models.Post.title.ilike(like) | models.Post.content.ilike(like)
+        )
 
     # 按标签名过滤（需要 join post_tags + tags）
     if tag_id:
@@ -506,6 +548,8 @@ def get_posts(
 
 def create_post(db: Session, post: schemas.PostCreate, user_id: str):
     """创建帖子"""
+    # 敏感词检查
+    sensitive = check_sensitive(post.title) + check_sensitive(post.content)
     db_post = models.Post(
         user_id=user_id,
         board_id=post.board_id,
@@ -516,9 +560,18 @@ def create_post(db: Session, post: schemas.PostCreate, user_id: str):
             if hasattr(post.post_type, "value")
             else (post.post_type or "DISCUSSION")
         ),
+        audit_status="FLAGGED" if sensitive else "APPROVED",
     )
     db.add(db_post)
     db.flush()
+
+    if sensitive:
+        viol = models.Violation(
+            target_type="POST", target_id=db_post.post_id,
+            reporter_id=None, reason=f"敏感词自动拦截: {', '.join(sensitive)}",
+            status="FLAGGED",
+        )
+        db.add(viol)
 
     # 添加标签
     if post.tags:
@@ -535,6 +588,9 @@ def create_post(db: Session, post: schemas.PostCreate, user_id: str):
 
     db.commit()
     db.refresh(db_post)
+
+    add_points(db, user_id, 5)
+
     return db_post
 
 
@@ -602,6 +658,7 @@ def increment_post_like(db: Session, post_id: str):
         db_post.like_count += 1
         db.commit()
         db.refresh(db_post)
+        add_points(db, db_post.user_id, 1)
     return db_post
 
 
@@ -645,13 +702,23 @@ def get_comments(
 
 def create_comment(db: Session, comment: schemas.CommentCreate, user_id: str):
     """创建评论"""
+    sensitive = check_sensitive(comment.content)
     db_comment = models.Comment(
         user_id=user_id,
         post_id=comment.post_id,
         parent_comment_id=comment.parent_comment_id,
         content=comment.content,
+        audit_status="FLAGGED" if sensitive else "APPROVED",
     )
     db.add(db_comment)
+
+    if sensitive:
+        viol = models.Violation(
+            target_type="COMMENT", target_id=db_comment.comment_id,
+            reporter_id=None, reason=f"敏感词自动拦截: {', '.join(sensitive)}",
+            status="FLAGGED",
+        )
+        db.add(viol)
 
     # 更新帖子评论数
     post = get_post(db, comment.post_id)
@@ -660,6 +727,9 @@ def create_comment(db: Session, comment: schemas.CommentCreate, user_id: str):
 
     db.commit()
     db.refresh(db_comment)
+
+    add_points(db, user_id, 2)
+
     return db_comment
 
 
@@ -964,16 +1034,37 @@ def resolve_violation(
     )
     if not v:
         return None
-    # support Enum instances or plain strings
     if hasattr(status, "value"):
         v.status = status.value
     else:
         v.status = status
     v.resolved_by = resolver_id
     v.resolved_at = func.now()
+
+    if status == "APPROVED" or status == "FLAGGED":
+        target = v.target_type
+        target_id = v.target_id
+        if target == "POST":
+            post = db.query(models.Post).filter(models.Post.post_id == target_id).first()
+            if post:
+                post.is_deleted = True
+                post.status = "DELETED"
+        elif target == "COMMENT":
+            comment = db.query(models.Comment).filter(models.Comment.comment_id == target_id).first()
+            if comment:
+                comment.is_deleted = True
+        uid = None
+        if target == "POST" and post:
+            uid = post.user_id
+        elif target == "COMMENT" and comment:
+            uid = comment.user_id
+        if uid:
+            user = db.query(models.User).filter(models.User.user_id == uid).first()
+            if user and user.status == "ACTIVE":
+                user.status = "SUSPENDED"
+
     db.commit()
     db.refresh(v)
-    # 记录审计日志：有人处理了举报
     try:
         create_audit_log(
             db,
@@ -986,3 +1077,156 @@ def resolve_violation(
     except Exception:
         pass
     return v
+
+def get_groups(db: Session, query: str = None, skip: int = 0, limit: int = 20):
+    q = db.query(models.Group).filter(models.Group.is_deleted == False)
+    if query:
+        like_pattern = f"%{query}%"
+        q = q.filter(models.Group.name.ilike(like_pattern))
+    return q.order_by(models.Group.created_at.desc()).offset(skip).limit(limit).all()
+
+
+def get_group(db: Session, group_id: str):
+    return (
+        db.query(models.Group)
+        .filter(models.Group.group_id == group_id, models.Group.is_deleted == False)
+        .first()
+    )
+
+
+def get_group_membership(db: Session, group_id: str, user_id: str):
+    """获取用户在群组中的成员资格"""
+    return (
+        db.query(models.GroupMembership)
+        .filter(
+            models.GroupMembership.group_id == group_id,
+            models.GroupMembership.user_id == user_id
+        )
+        .first()
+    )
+
+
+def create_group(db: Session, group_in: schemas.GroupCreate, owner_id: str):
+    group = models.Group(
+        name=group_in.name,
+        description=group_in.description,
+        access_level=group_in.access_level,
+        owner_id=owner_id,
+        member_count=1,
+    )
+    db.add(group)
+    db.flush()
+
+    db.execute(
+        text(
+            "INSERT INTO group_memberships (group_id, user_id, role, joined_at) "
+            "VALUES (:group_id, :user_id, :role, CURRENT_TIMESTAMP)"
+        ),
+        {"group_id": group.group_id, "user_id": owner_id, "role": "OWNER"},
+    )
+
+    db.commit()
+    db.refresh(group)
+    return group
+
+
+def join_group(db: Session, user_id: str, group_id: str):
+    exists = db.query(models.GroupMembership).filter(
+        models.GroupMembership.group_id == group_id,
+        models.GroupMembership.user_id == user_id,
+    ).first()
+    if exists:
+        return False
+
+    membership = models.GroupMembership(
+        group_id=group_id,
+        user_id=user_id,
+        role="MEMBER",
+    )
+    db.add(membership)
+
+    group = db.query(models.Group).filter(models.Group.group_id == group_id).first()
+    if group:
+        group.member_count = (group.member_count or 0) + 1
+        db.add(group)
+
+    db.commit()
+    return True
+
+
+def create_certification(db: Session, user_id: str, cert_type: str, file_path: str = None, description: str = None):
+    cert = models.Certification(user_id=user_id, cert_type=cert_type, file_path=file_path, description=description)
+    db.add(cert)
+    db.commit()
+    db.refresh(cert)
+    return cert
+
+
+def list_certifications(db: Session, status: str = None, skip: int = 0, limit: int = 50):
+    q = db.query(models.Certification).order_by(models.Certification.created_at.desc())
+    if status:
+        q = q.filter(models.Certification.status == status)
+    return q.offset(skip).limit(limit).all()
+
+
+def review_certification(db: Session, cert_id: str, status: str, reviewed_by: str, remark: str = None):
+    cert = db.query(models.Certification).filter(models.Certification.cert_id == cert_id).first()
+    if not cert:
+        return None
+    cert.status = status
+    cert.reviewed_by = reviewed_by
+    if remark:
+        cert.admin_remark = remark
+    db.commit()
+    db.refresh(cert)
+    if status == "APPROVED":
+        user = db.query(models.User).filter(models.User.user_id == cert.user_id).first()
+        if user:
+            user.auth_level = "EXPERT"
+            db.commit()
+    return cert
+
+
+def create_risk_assessment(db: Session, user_id: str, answers: str, score: int, risk_level: str):
+    assessment = models.RiskAssessment(user_id=user_id, answers=answers, score=score, risk_level=risk_level)
+    db.add(assessment)
+    db.commit()
+    db.refresh(assessment)
+    return assessment
+
+
+def list_risk_assessments(db: Session, status: str = None, skip: int = 0, limit: int = 50):
+    q = db.query(models.RiskAssessment).order_by(models.RiskAssessment.created_at.desc())
+    if status:
+        q = q.filter(models.RiskAssessment.status == status)
+    return q.offset(skip).limit(limit).all()
+
+
+def review_risk_assessment(db: Session, assessment_id: str, status: str, reviewed_by: str):
+    assessment = db.query(models.RiskAssessment).filter(models.RiskAssessment.assessment_id == assessment_id).first()
+    if not assessment:
+        return None
+    assessment.status = status
+    assessment.reviewed_by = reviewed_by
+    db.commit()
+    db.refresh(assessment)
+    return assessment
+
+
+def leave_group(db: Session, user_id: str, group_id: str):
+    membership = db.query(models.GroupMembership).filter(
+        models.GroupMembership.group_id == group_id,
+        models.GroupMembership.user_id == user_id,
+    ).first()
+    if not membership:
+        return False
+
+    db.delete(membership)
+
+    group = db.query(models.Group).filter(models.Group.group_id == group_id).first()
+    if group and group.member_count and group.member_count > 0:
+        group.member_count -= 1
+        db.add(group)
+
+    db.commit()
+    return True

@@ -12,9 +12,16 @@ router = APIRouter(prefix="/stocks", tags=["stocks"])
 def list_stocks(
     page: int = Query(1, ge=1),
     per_page: int = Query(50, ge=1, le=200),
+    q: str = Query(None),
     db: Session = Depends(get_db),
 ):
     skip = (page - 1) * per_page
+    if q:
+        from ..models import StockInfo
+        like = f"%{q}%"
+        return db.query(StockInfo).filter(
+            StockInfo.name.ilike(like) | StockInfo.symbol.ilike(like)
+        ).offset(skip).limit(per_page).all()
     return crud.list_stocks(db, skip=skip, limit=per_page)
 
 

@@ -2,8 +2,9 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app import crud, schemas, auth
+from app import crud, schemas, auth, models
 from app.database import get_db
+from sqlalchemy import func, text
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -12,22 +13,51 @@ router = APIRouter(prefix="/users", tags=["users"])
 def list_users(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
+    nickname: str = Query(None),
     db: Session = Depends(get_db),
 ):
     offset = (page - 1) * per_page
-    users = (
-        db.query(crud.models.User)
-        .filter(crud.models.User.is_deleted == False)
-        .offset(offset)
-        .limit(per_page)
-        .all()
-    )
+    q = db.query(crud.models.User).filter(crud.models.User.is_deleted == False)
+    if nickname:
+        q = q.filter(crud.models.User.nickname.ilike(f"%{nickname}%"))
+    users = q.offset(offset).limit(per_page).all()
     return users
 
 
 @router.get("/me", response_model=schemas.UserOut)
 def read_current_user(current_user=Depends(auth.get_current_user)):
     return current_user
+
+
+@router.get("/me/favorites", response_model=List[schemas.PostOut])
+def list_my_favorites(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    current_user=Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    post_ids = (
+        db.query(models.Engagement.content_id)
+        .filter(
+            models.Engagement.user_id == current_user.user_id,
+            models.Engagement.engagement_type == "BOOKMARK",
+            models.Engagement.content_type == "POST",
+        )
+        .order_by(models.Engagement.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
+        .all()
+    )
+    ids = [row[0] for row in post_ids]
+    if not ids:
+        return []
+    posts = (
+        db.query(models.Post)
+        .filter(models.Post.post_id.in_(ids), models.Post.is_deleted == False)
+        .all()
+    )
+    post_map = {p.post_id: p for p in posts}
+    return [post_map[pid] for pid in ids if pid in post_map]
 
 
 @router.post("", response_model=schemas.UserOut, status_code=201)
@@ -84,3 +114,45 @@ def follow_user(user_id: str, current_user=Depends(auth.get_current_user), db: S
 def unfollow_user(user_id: str, current_user=Depends(auth.get_current_user), db: Session = Depends(get_db)):
     crud.unfollow_user(db, follower_id=current_user.user_id, following_id=user_id)
     return {"detail": "unfollowed"}
+
+
+@router.get("/{user_id}/followers", response_model=List[dict])
+def list_followers(
+    user_id: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    rows = db.execute(
+        text("SELECT follower_id FROM user_follows WHERE following_id = :uid ORDER BY created_at DESC LIMIT :lim OFFSET :off"),
+        {"uid": user_id, "lim": per_page, "off": (page - 1) * per_page},
+    ).fetchall()
+    follower_ids = [r[0] for r in rows]
+    users = db.query(models.User).filter(models.User.user_id.in_(follower_ids)).all() if follower_ids else []
+    user_map = {u.user_id: {"user_id": u.user_id, "nickname": u.nickname, "avatar": u.avatar} for u in users}
+    return [user_map.get(uid, {"user_id": uid}) for uid in follower_ids]
+
+
+@router.get("/{user_id}/following", response_model=List[dict])
+def list_following(
+    user_id: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    rows = db.execute(
+        text("SELECT following_id FROM user_follows WHERE follower_id = :uid ORDER BY created_at DESC LIMIT :lim OFFSET :off"),
+        {"uid": user_id, "lim": per_page, "off": (page - 1) * per_page},
+    ).fetchall()
+    following_ids = [r[0] for r in rows]
+    users = db.query(models.User).filter(models.User.user_id.in_(following_ids)).all() if following_ids else []
+    user_map = {u.user_id: {"user_id": u.user_id, "nickname": u.nickname, "avatar": u.avatar} for u in users}
+    return [user_map.get(uid, {"user_id": uid}) for uid in following_ids]
+
+
+@router.get("/{user_id}/stats", response_model=dict)
+def get_user_stats(user_id: str, db: Session = Depends(get_db)):
+    follower_count = db.execute(text("SELECT COUNT(*) FROM user_follows WHERE following_id = :uid"), {"uid": user_id}).scalar() or 0
+    following_count = db.execute(text("SELECT COUNT(*) FROM user_follows WHERE follower_id = :uid"), {"uid": user_id}).scalar() or 0
+    post_count = db.query(models.Post).filter(models.Post.user_id == user_id, models.Post.is_deleted == False).count()
+    return {"followers": follower_count, "following": following_count, "posts": post_count}

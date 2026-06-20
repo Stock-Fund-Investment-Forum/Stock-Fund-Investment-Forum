@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app import crud, auth
@@ -14,6 +14,20 @@ def create_engagement(e: EngagementIn, current_user=Depends(auth.get_current_use
     if not created:
         raise HTTPException(status_code=400, detail="Already exists")
     return {"detail": "created"}
+
+
+@router.get("", status_code=200)
+def get_engagement(
+    content_id: str = Query(...),
+    content_type: str = Query(...),
+    engagement_type: str = Query(...),
+    current_user=Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    eng = crud.get_engagement(db, current_user.user_id, content_id, engagement_type)
+    if eng and eng.content_type == content_type:
+        return {"exists": True, "engagement_id": eng.engagement_id}
+    return {"exists": False}
 
 
 @router.delete("", status_code=200)

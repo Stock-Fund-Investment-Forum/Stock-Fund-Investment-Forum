@@ -3,8 +3,20 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from .. import crud, schemas, auth
+from .. import crud, schemas, auth, models
 from ..database import get_db
+
+
+def enrich_posts_with_nicknames(db: Session, posts):
+    """为帖子列表填充作者昵称"""
+    user_ids = list(set(p.user_id for p in posts if p.user_id))
+    if not user_ids:
+        return posts
+    users = db.query(models.User).filter(models.User.user_id.in_(user_ids)).all()
+    user_map = {u.user_id: u.nickname for u in users}
+    for p in posts:
+        p.user_nickname = user_map.get(p.user_id, p.user_id[:8])
+    return posts
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 
@@ -17,6 +29,7 @@ def list_posts(
     user_id: str = Query(None),
     post_type: str = Query(None),
     tag_id: str = Query(None),
+    q: str = Query(None),
     include_deleted: bool = Query(False),
     order_by: str = Query("created_at"),  # 'hot' or 'created_at'
     db: Session = Depends(get_db),
@@ -31,10 +44,11 @@ def list_posts(
         user_id=user_id,
         post_type=post_type,
         tag_id=tag_id,
+        q=q,
         include_deleted=include_deleted,
         order_by=order_by,
     )
-    return posts
+    return enrich_posts_with_nicknames(db, posts)
 
 
 @router.get("/{post_id}", response_model=schemas.PostOut)
@@ -47,7 +61,59 @@ def get_post(post_id: str, db: Session = Depends(get_db)):
     # 增加浏览次数
     crud.increment_post_view(db, post_id)
 
+    enrich_posts_with_nicknames(db, [post])
     return post
+
+
+@router.get("/{post_id}/comments", response_model=List[schemas.CommentOut])
+def get_post_comments(
+    post_id: str,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    parent_comment_id: str = Query(None),
+    db: Session = Depends(get_db),
+):
+    """获取指定帖子的评论列表"""
+    post = crud.get_post(db, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    if parent_comment_id == "":
+        parent_comment_id = None
+
+    skip = (page - 1) * per_page
+    comments = crud.get_comments(
+        db,
+        post_id=post_id,
+        skip=skip,
+        limit=per_page,
+        parent_comment_id=parent_comment_id,
+    )
+    return comments
+
+
+@router.post("/{post_id}/comments", response_model=schemas.CommentOut, status_code=201, include_in_schema=False)
+def create_post_comment(
+    post_id: str,
+    comment_data: schemas.CommentCreate,
+    current_user=Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    """通过帖子路由创建评论（兼容旧版前端）"""
+    comment_data.post_id = post_id
+    if comment_data.parent_comment_id == "":
+        comment_data.parent_comment_id = None
+    post = crud.get_post(db, post_id)
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if comment_data.parent_comment_id:
+        parent = crud.get_comment(db, comment_data.parent_comment_id)
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent comment not found")
+        if parent.post_id != post_id:
+            raise HTTPException(status_code=400, detail="Parent comment not in the same post")
+    db_comment = crud.create_comment(db, comment_data, current_user.user_id)
+    return db_comment
 
 
 @router.post("", response_model=schemas.PostOut, status_code=201)
@@ -57,10 +123,16 @@ def create_post(
     db: Session = Depends(get_db),
 ):
     """创建帖子"""
-    # 检查板块是否存在
+    # 检查板块是否存在；开发模式下若板块缺失则自动创建，方便本地联调
     board = crud.get_board(db, post.board_id)
     if not board:
-        raise HTTPException(status_code=404, detail="Board not found")
+        try:
+            new_board = models.Board(board_id=post.board_id, name=post.board_id)
+            db.add(new_board)
+            db.commit()
+            db.refresh(new_board)
+        except Exception:
+            raise HTTPException(status_code=404, detail="Board not found and auto-create failed")
 
     db_post = crud.create_post(db, post, current_user.user_id)
     return db_post
