@@ -5,6 +5,14 @@
 import { get, post, put, deleteRequest } from '../utils/http';
 import { API_ENDPOINTS } from '../constants/api';
 
+export const followUser = async (userId) => {
+  return post(API_ENDPOINTS.FOLLOW_USER.replace(':userId', userId));
+};
+
+export const unfollowUser = async (userId) => {
+  return post(API_ENDPOINTS.UNFOLLOW_USER.replace(':userId', userId));
+};
+
 /**
  * Get users list with pagination
  * @param {object} params - Query parameters
@@ -26,6 +34,14 @@ export const getUsers = async (params = {}) => {
  */
 export const getUser = async (userId) => {
   return get(API_ENDPOINTS.GET_USER.replace(':userId', userId));
+};
+
+/**
+ * Get current user profile (for logged-in user)
+ * @returns {Promise} Current user object
+ */
+export const getCurrentUser = async () => {
+  return get(API_ENDPOINTS.GET_CURRENT_USER);
 };
 
 /**

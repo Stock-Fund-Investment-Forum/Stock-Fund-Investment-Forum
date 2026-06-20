@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Plus, Search, Users, Lock, Globe, Star, MoreHorizontal, Loader } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, Search, Users, Lock, Globe, Star, MoreHorizontal, Loader, X } from 'lucide-react'
 import { groupsService } from '../../services'
+import { useAuth } from '../../context/AuthContext'
 
 const EMOJI_LIST = ['💾', '📊', '💰', '⚡', '🇭🇰', '🇺🇸', '🏢', '📈', '🎯', '🔬', '🤖', '🏦']
 
@@ -10,12 +11,21 @@ function getEmoji(index) {
 }
 
 export default function Groups() {
+  const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const [activeTab, setActiveTab] = useState('my')
   const [myGroups, setMyGroups] = useState([])
   const [discoverGroups, setDiscoverGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [newGroup, setNewGroup] = useState({
+    name: '',
+    description: '',
+    access_level: 'PUBLIC'
+  })
 
   const fetchGroups = async () => {
     try {
@@ -36,10 +46,11 @@ export default function Groups() {
         needApproval: g.access_level === 'NEED_APPROVAL',
         isOwner: g.is_owner || false,
         isAdmin: g.is_admin || false,
+        isMember: g.is_member || false,
         unread: g.unread_count || 0,
       }))
-      setMyGroups(mapped)
-      setDiscoverGroups(mapped)
+      setMyGroups(mapped.filter(g => g.isMember))
+      setDiscoverGroups(mapped.filter(g => !g.isMember))
     } catch (err) {
       console.error('Failed to fetch groups:', err)
       setError(err.message || '获取群组列表失败')
@@ -75,11 +86,51 @@ export default function Groups() {
     )
   }
 
+  const handleCreateGroup = async () => {
+    if (!isAuthenticated) {
+      alert('请先登录')
+      navigate('/login')
+      return
+    }
+
+    if (!newGroup.name.trim()) {
+      alert('请输入群组名称')
+      return
+    }
+
+    try {
+      setCreating(true)
+      const createdGroup = await groupsService.createGroup({
+        name: newGroup.name,
+        description: newGroup.description,
+        access_level: newGroup.access_level
+      })
+      
+      alert('群组创建成功！')
+      setShowCreateModal(false)
+      setNewGroup({ name: '', description: '', access_level: 'PUBLIC' })
+      
+      // 刷新群组列表
+      fetchGroups()
+      
+      // 跳转到新创建的群组
+      navigate(`/groups/${createdGroup.group_id}`)
+    } catch (err) {
+      console.error('Failed to create group:', err)
+      alert('创建失败: ' + (err.message || '请稍后重试'))
+    } finally {
+      setCreating(false)
+    }
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">群组</h1>
-        <button className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+        <button 
+          onClick={() => setShowCreateModal(true)}
+          className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+        >
           <Plus className="h-5 w-5" />
           <span>创建群组</span>
         </button>
@@ -199,18 +250,21 @@ export default function Groups() {
                 <span>{group.posts} 帖子</span>
               </div>
               <div className="mt-4 flex space-x-2">
-                {group.needApproval ? (
-                  <button className="flex-1 px-4 py-2 border border-primary-600 text-primary-600 rounded-lg hover:bg-primary-50">
-                    申请加入
+                {group.isMember ? (
+                  <button
+                    onClick={async () => { try { await groupsService.leaveGroup(group.id); fetchGroups() } catch (e) { alert(e.message) } }}
+                    className="flex-1 px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
+                  >
+                    退出群组
                   </button>
                 ) : (
-                  <button className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                  <button
+                    onClick={async () => { try { await groupsService.joinGroup(group.id); fetchGroups() } catch (e) { alert(e.message) } }}
+                    className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
+                  >
                     加入群组
                   </button>
                 )}
-                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-                  <Star className="h-4 w-4" />
-                </button>
               </div>
             </div>
           ))}
@@ -257,6 +311,85 @@ export default function Groups() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Create Group Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">创建新群组</h2>
+              <button 
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  群组名称 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newGroup.name}
+                  onChange={(e) => setNewGroup({ ...newGroup, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="输入群组名称"
+                  maxLength={50}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  群组描述
+                </label>
+                <textarea
+                  value={newGroup.description}
+                  onChange={(e) => setNewGroup({ ...newGroup, description: e.target.value })}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                  placeholder="介绍一下这个群组..."
+                  maxLength={500}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  访问权限
+                </label>
+                <select
+                  value={newGroup.access_level}
+                  onChange={(e) => setNewGroup({ ...newGroup, access_level: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="PUBLIC">公开群组 - 任何人可加入</option>
+                  <option value="NEED_APPROVAL">审核制 - 需要管理员审核</option>
+                  <option value="PRIVATE">私密群组 - 仅邀请可加入</option>
+                </select>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  disabled={creating}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleCreateGroup}
+                  className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                  disabled={creating}
+                >
+                  {creating ? '创建中...' : '创建群组'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

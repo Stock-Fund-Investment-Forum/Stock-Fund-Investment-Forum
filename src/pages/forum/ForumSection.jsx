@@ -29,9 +29,13 @@ export default function ForumSection() {
         setLoading(true)
         setError(null)
         
-        // 从后端获取该板块的帖子
-        const response = await postsService.getBoardPosts(section, { page: 1, per_page: 20 })
-        const postsData = response.items || response || []
+        // 使用 /posts?board_id=xxx 接口获取该板块的帖子
+        const response = await postsService.getPosts({ 
+          board_id: section,
+          page: 1, 
+          per_page: 20 
+        })
+        const postsData = Array.isArray(response) ? response : (response.items || [])
         setPosts(postsData)
       } catch (err) {
         console.error('Failed to fetch posts:', err)

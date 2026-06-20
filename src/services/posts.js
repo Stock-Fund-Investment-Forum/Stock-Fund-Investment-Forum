@@ -5,6 +5,14 @@
 import { get, post, put, deleteRequest } from '../utils/http';
 import { API_ENDPOINTS } from '../constants/api';
 
+export const likePost = async (postId) => {
+  return post(API_ENDPOINTS.LIKE_POST.replace(':postId', postId));
+};
+
+export const unlikePost = async (postId) => {
+  return post(API_ENDPOINTS.UNLIKE_POST.replace(':postId', postId));
+};
+
 /**
  * Get all posts with pagination and filtering
  * @param {object} params - Query parameters
@@ -69,7 +77,6 @@ export const deletePost = async (postId) => {
  * @returns {Promise} Posts list
  */
 export const getBoardPosts = async (boardId, params = {}) => {
-  const query = new URLSearchParams(params).toString();
-  const endpoint = API_ENDPOINTS.GET_BOARD_POSTS.replace(':boardId', boardId);
-  return get(`${endpoint}${query ? '?' + query : ''}`);
+  const query = new URLSearchParams({ ...params, board_id: boardId }).toString();
+  return get(`${API_ENDPOINTS.GET_POSTS}${query ? '?' + query : ''}`);
 };

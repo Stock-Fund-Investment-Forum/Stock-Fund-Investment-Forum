@@ -5,6 +5,14 @@
 import { get, post, put, deleteRequest } from '../utils/http';
 import { API_ENDPOINTS } from '../constants/api';
 
+export const likeComment = async (commentId) => {
+  return post(API_ENDPOINTS.LIKE_COMMENT.replace(':commentId', commentId));
+};
+
+export const unlikeComment = async (commentId) => {
+  return post(API_ENDPOINTS.UNLIKE_COMMENT.replace(':commentId', commentId));
+};
+
 /**
  * Get comments for a post
  * @param {string} postId - Post ID
@@ -35,8 +43,10 @@ export const getComment = async (commentId) => {
  * @returns {Promise} Created comment
  */
 export const createComment = async (postId, commentData) => {
-  const endpoint = API_ENDPOINTS.CREATE_COMMENT.replace(':postId', postId);
-  return post(endpoint, commentData);
+  return post(API_ENDPOINTS.CREATE_COMMENT, {
+    ...commentData,
+    post_id: postId,
+  });
 };
 
 /**

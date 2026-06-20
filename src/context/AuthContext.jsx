@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { getStorage, setStorage, removeStorage } from '../utils/storage';
-import { post } from '../utils/http';
+import { get, post, postForm } from '../utils/http';  // ✅ 添加 get 导入
 import { API_ENDPOINTS, TOKEN_STORAGE_KEY, USER_STORAGE_KEY } from '../constants/api';
 
 const AuthContext = createContext(null);
@@ -33,45 +33,102 @@ export function AuthProvider({ children }) {
   /**
    * Login with email and password
    */
-  const login = useCallback(async (email, password) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      // Validate inputs
-      if (!email || !password) {
-        throw new Error('邮箱和密码不能为空');
-      }
 
-      // Call backend API
-      const response = await post(API_ENDPOINTS.LOGIN, {
-        email,
-        password,
-      }, { skipAuth: true });
+    // src/context/AuthContext.jsx
 
-      // Store token
-      if (response.token) {
-        setStorage(TOKEN_STORAGE_KEY, response.token);
-      }
-
-      // Store user info
-      const userData = {
-        ...response,
-        // Ensure we have these fields for UI
-        id: response.user_id,
-        nickname: response.nickname,
-      };
-      setUser(userData);
-      setStorage(USER_STORAGE_KEY, userData);
-
-      return userData;
-    } catch (err) {
-      const errorMessage = err.data?.message || err.message || '登录失败，请重试';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setIsLoading(false);
+const login = useCallback(async (identifier, password) => {
+  setIsLoading(true);
+  setError(null);
+  try {
+    if (!identifier || !password) {
+      throw new Error('账号和密码不能为空');
     }
-  }, []);
+
+    // OAuth2PasswordRequestForm 期望字段名为 username 和 password
+    // 无论前端输入的是邮箱还是手机，都映射到 username
+    const formData = {
+      username: identifier.trim(), 
+      password: password,
+    };
+
+    // 1. 使用 postForm 发送表单数据，而不是 JSON
+    const response = await postForm(API_ENDPOINTS.LOGIN, formData, { skipAuth: true });
+
+    // 注意：FastAPI OAuth2 返回的 token 字段通常是 access_token
+    // 检查你的 schemas.Token 定义，如果是 { access_token: "...", token_type: "bearer" }
+    const token = response.access_token || response.token; 
+
+    if (token) {
+      setStorage(TOKEN_STORAGE_KEY, token);
+    }
+
+    // 2. ✅ 登录成功后，调用 /users/me 接口获取完整的用户信息
+    // 因为登录接口只返回 token，不返回用户详情
+    const userProfile = await get(API_ENDPOINTS.GET_CURRENT_USER);
+    
+    // 3. 保存完整的用户信息
+    const userData = {
+      ...userProfile,  // 保留后端返回的所有字段（包括 email, phone, nickname 等）
+      id: userProfile.user_id || 'pending', 
+      token: token // 确保存下 token
+    };
+    
+    setUser(userData);
+    setStorage(USER_STORAGE_KEY, userData);
+
+    return userData;
+  } catch (err) {
+    // FastAPI 422 错误通常在 err.data.detail 中
+    const errorMessage = err.data?.detail 
+      ? (Array.isArray(err.data.detail) ? err.data.detail[0]?.msg : err.data.detail) 
+      : (err.data?.message || err.message || '登录失败，请重试');
+      
+    setError(errorMessage);
+    throw err;
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
+
+  // const login = useCallback(async (email, password) => {
+  //   setIsLoading(true);
+  //   setError(null);
+  //   try {
+  //     // Validate inputs
+  //     if (!email || !password) {
+  //       throw new Error('邮箱和密码不能为空');
+  //     }
+
+  //     // Call backend API
+  //     const response = await post(API_ENDPOINTS.LOGIN, {
+  //       email,
+  //       password,
+  //     }, { skipAuth: true });
+
+  //     // Store token
+  //     if (response.token) {
+  //       setStorage(TOKEN_STORAGE_KEY, response.token);
+  //     }
+
+  //     // Store user info
+  //     const userData = {
+  //       ...response,
+  //       // Ensure we have these fields for UI
+  //       id: response.user_id,
+  //       nickname: response.nickname,
+  //     };
+  //     setUser(userData);
+  //     setStorage(USER_STORAGE_KEY, userData);
+
+  //     return userData;
+  //   } catch (err) {
+  //     const errorMessage = err.data?.message || err.message || '登录失败，请重试';
+  //     setError(errorMessage);
+  //     throw err;
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // }, []);
 
   /**
    * Register new user (supports both email and phone registration)
@@ -109,22 +166,29 @@ export function AuthProvider({ children }) {
         payload.phone = userData.phone;
       }
 
-      // Call backend API
+      // Call backend API to register
       const response = await post(API_ENDPOINTS.REGISTER, payload, { skipAuth: true });
 
-      // User created successfully
-      // Auto-login or redirect to login page
+      // Auto-login: use the same credentials to get a token
+      const identifier = payload.email || payload.phone || '';
+      const loginForm = { username: identifier, password: payload.password };
+      const tokenResponse = await postForm(API_ENDPOINTS.LOGIN, loginForm, { skipAuth: true });
+      const token = tokenResponse.access_token || tokenResponse.token;
+
+      if (token) {
+        setStorage(TOKEN_STORAGE_KEY, token);
+      }
+
+      // Fetch full user profile
+      const userProfile = token ? await get(API_ENDPOINTS.GET_CURRENT_USER) : response;
       const userData_response = {
-        ...response,
-        id: response.user_id,
+        ...userProfile,
+        id: userProfile.user_id || 'pending',
+        token,
       };
+
       setUser(userData_response);
       setStorage(USER_STORAGE_KEY, userData_response);
-
-      // If token is returned, store it
-      if (response.token) {
-        setStorage(TOKEN_STORAGE_KEY, response.token);
-      }
 
       return userData_response;
     } catch (err) {

@@ -1,15 +1,30 @@
 import { useParams, Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { Users, FileText, MessageSquare, Star, Settings, Plus, Search, Send, Lock, Globe, TrendingUp, Loader } from 'lucide-react'
-import { groupsService } from '../../services'
+import { useState, useEffect, useRef } from 'react'
+import { Users, FileText, MessageSquare, Settings, Send, Lock, Globe, TrendingUp, Loader, Upload, Plus, X, BarChart3 } from 'lucide-react'
+import { groupsService, postsService } from '../../services'
+import { post, get } from '../../utils/http'
+import { useAuth } from '../../context/AuthContext'
 
 export default function GroupDetail() {
   const { groupId } = useParams()
+  const { isAuthenticated } = useAuth()
   const [activeTab, setActiveTab] = useState('posts')
   const [postText, setPostText] = useState('')
   const [group, setGroup] = useState(null)
+  const [groupPosts, setGroupPosts] = useState([])
+  const [groupFiles, setGroupFiles] = useState([])
+  const [groupMembers, setGroupMembers] = useState([])
+  const [groupPolls, setGroupPolls] = useState([])
   const [loading, setLoading] = useState(true)
+  const [joining, setJoining] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [votingPoll, setVotingPoll] = useState(null)
+  const [showCreatePoll, setShowCreatePoll] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptions, setPollOptions] = useState(['', ''])
+  const [creatingPoll, setCreatingPoll] = useState(false)
   const [error, setError] = useState(null)
+  const fileInputRef = useRef(null)
 
   const EMOJI_COVER = ['🔬', '🚀', '📊', '💰', '🏭', '🌍', '🎯', '🤖']
 
@@ -31,9 +46,11 @@ export default function GroupDetail() {
           type: data.access_level === 'PRIVATE' ? 'private' : 'public',
           isOwner: data.is_owner || false,
           isAdmin: data.is_admin || false,
-          isMember: data.is_member || true,
+          isMember: data.is_member || false,
           createdAt: data.created_at ? new Date(data.created_at).toLocaleDateString() : '未知',
         })
+        const postsRes = await postsService.getPosts({ board_id: groupId, page: 1, per_page: 50 })
+        setGroupPosts(Array.isArray(postsRes) ? postsRes : postsRes.items || [])
       } catch (err) {
         console.error('Failed to fetch group:', err)
         setError(err.message || '获取群组信息失败')
@@ -42,68 +59,119 @@ export default function GroupDetail() {
       }
     }
     fetchGroup()
+    const fetchFiles = async () => {
+      try {
+        const res = await get(`/groups/${groupId}/files?per_page=50`)
+        setGroupFiles(Array.isArray(res) ? res : res.items || [])
+      } catch { setGroupFiles([]) }
+    }
+    fetchFiles()
+    const fetchMembers = async () => {
+      try { const res = await get(`/groups/${groupId}/members`); setGroupMembers(Array.isArray(res) ? res : []) }
+      catch { setGroupMembers([]) }
+    }
+    fetchMembers()
+    const fetchPolls = async () => {
+      try { const res = await get(`/groups/${groupId}/polls`); setGroupPolls(Array.isArray(res) ? res : []) }
+      catch { setGroupPolls([]) }
+    }
+    fetchPolls()
   }, [groupId])
 
-  const posts = [
-    {
-      id: 1,
-      author: { name: '芯片分析师', avatar: '👤', level: 'Lv.4', isProfessional: true },
-      content: '中芯国际最新财报分析：营收同比增长15%，毛利率持续提升。建议关注先进制程进展...',
-      time: '2小时前',
-      likes: 45,
-      comments: 12
-    },
-    {
-      id: 2,
-      author: { name: '半导体研究员', avatar: '👤', level: 'Lv.3' },
-      content: '分享一份2024年半导体行业深度研究报告，包含产业链分析和投资机会梳理',
-      time: '5小时前',
-      likes: 67,
-      comments: 23,
-      hasAttachment: true
-    },
-    {
-      id: 3,
-      author: { name: '价值猎人', avatar: '👤', level: 'Lv.5', isProfessional: true },
-      content: '半导体板块近期回调，是否是买入机会？我认为应该关注基本面良好的龙头企业',
-      time: '1天前',
-      likes: 89,
-      comments: 34
-    }
-  ]
+  const handleJoin = async () => {
+    if (!isAuthenticated) { alert('请先登录'); return }
+    setJoining(true)
+    try {
+      await groupsService.joinGroup(groupId)
+      const data = await groupsService.getGroup(groupId)
+      setGroup(prev => ({ ...prev, isMember: true, members: data.member_count || prev.members }))
+    } catch (e) { alert(e.message) }
+    finally { setJoining(false) }
+  }
 
-  const files = [
-    { id: 1, name: '2024半导体行业深度报告.pdf', size: '5.2MB', author: '半导体研究员', time: '2天前' },
-    { id: 2, name: '中芯国际财报分析.xlsx', size: '1.8MB', author: '芯片分析师', time: '3天前' },
-    { id: 3, name: '半导体产业链图谱.png', size: '2.3MB', author: '行业观察者', time: '1周前' }
-  ]
+  const handleLeave = async () => {
+    if (!confirm('确定退出该群组？')) return
+    try {
+      await groupsService.leaveGroup(groupId)
+      setGroup(prev => ({ ...prev, isMember: false }))
+    } catch (e) { alert(e.message) }
+  }
 
-  const members = [
-    { id: 1, name: '群主', avatar: '👤', level: 'Lv.6', role: 'owner', isOnline: true },
-    { id: 2, name: '芯片分析师', avatar: '👤', level: 'Lv.4', role: 'admin', isOnline: true, isProfessional: true },
-    { id: 3, name: '半导体研究员', avatar: '👤', level: 'Lv.3', role: 'member', isOnline: false },
-    { id: 4, name: '价值猎人', avatar: '👤', level: 'Lv.5', role: 'member', isOnline: true, isProfessional: true }
-  ]
-
-  const polls = [
-    {
-      id: 1,
-      title: '下周半导体板块走势判断',
-      options: [
-        { text: '上涨', votes: 45, percentage: 45 },
-        { text: '震荡', votes: 35, percentage: 35 },
-        { text: '下跌', votes: 20, percentage: 20 }
-      ],
-      totalVotes: 100,
-      deadline: '2024-04-05',
-      hasVoted: false
-    }
-  ]
-
-  const handlePostSubmit = () => {
+  const handlePostSubmit = async () => {
     if (!postText.trim()) return
-    console.warn('Submitting group post:', postText)
-    setPostText('')
+    try {
+      await postsService.createPost({ board_id: groupId, title: `群讨论 ${new Date().toLocaleString()}`, content: postText, post_type: 'DISCUSSION' })
+      setPostText('')
+      const postsRes = await postsService.getPosts({ board_id: groupId, page: 1, per_page: 50 })
+      setGroupPosts(Array.isArray(postsRes) ? postsRes : postsRes.items || [])
+    } catch (e) { alert(e.message) }
+  }
+
+  const fetchFiles = async () => {
+    try {
+      const res = await get(`/groups/${groupId}/files?per_page=50`)
+      setGroupFiles(Array.isArray(res) ? res : res.items || [])
+    } catch { setGroupFiles([]) }
+  }
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('group_id', groupId)
+      await post(`/groups/${groupId}/files`, formData)
+      fetchFiles()
+    } catch (err) { alert('上传失败: ' + (err.message || '')) }
+    finally { setUploading(false); if (fileInputRef.current) fileInputRef.current.value = '' }
+  }
+
+  const handleVote = async (pollId, optionId) => {
+    if (!isAuthenticated) { alert('请先登录'); return }
+    setVotingPoll(pollId)
+    try {
+      await post(`/polls/${pollId}/vote`, { option_id: optionId })
+      const res = await get(`/groups/${groupId}/polls`)
+      setGroupPolls(Array.isArray(res) ? res : [])
+    } catch (e) { alert('投票失败: ' + (e.message || '')) }
+    finally { setVotingPoll(null) }
+  }
+
+  const handleCreatePoll = async () => {
+    if (!pollQuestion.trim()) { alert('请输入投票问题'); return }
+    const validOptions = pollOptions.filter(o => o.trim())
+    if (validOptions.length < 2) { alert('请至少添加2个选项'); return }
+    setCreatingPoll(true)
+    try {
+      const postRes = await postsService.createPost({
+        board_id: groupId,
+        title: `投票: ${pollQuestion.trim()}`,
+        content: pollQuestion.trim(),
+        post_type: 'QUESTION',
+      })
+      if (postRes?.post_id) {
+        await post('/polls', {
+          post_id: postRes.post_id,
+          question: pollQuestion.trim(),
+          options: validOptions.map(text => ({ text })),
+        })
+      }
+      setShowCreatePoll(false)
+      setPollQuestion('')
+      setPollOptions(['', ''])
+      const res = await get(`/groups/${groupId}/polls`)
+      setGroupPolls(Array.isArray(res) ? res : [])
+    } catch (e) { alert('创建失败: ' + (e.message || '')) }
+    finally { setCreatingPoll(false) }
+  }
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return bytes + 'B'
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB'
+    return (bytes / (1024 * 1024)).toFixed(1) + 'MB'
   }
 
   if (loading) {
@@ -156,13 +224,13 @@ export default function GroupDetail() {
                       群组设置
                     </Link>
                   )}
-                  <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-                    已加入
+                  <button onClick={handleLeave} className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50">
+                    退出群组
                   </button>
                 </>
               ) : (
-                <button className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
-                  加入群组
+                <button onClick={handleJoin} disabled={joining} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                  {joining ? '加入中...' : '加入群组'}
                 </button>
               )}
             </div>
@@ -244,36 +312,28 @@ export default function GroupDetail() {
               )}
 
               {/* Posts List */}
-              {posts.map((post) => (
-                <div key={post.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              {groupPosts.length > 0 ? groupPosts.map((post) => (
+                <Link key={post.post_id} to={`/post/${post.post_id}`} className="block bg-white rounded-xl shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-start space-x-3">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">
-                      {post.author.avatar}
-                    </div>
+                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">👤</div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{post.author.name}</span>
-                        {post.author.isProfessional && (
-                          <Star className="h-4 w-4 text-yellow-500" />
-                        )}
-                        <span className="text-xs text-gray-500">{post.author.level}</span>
+                        <span className="font-medium text-gray-900">{post.user_id?.slice(0, 8) || '匿名'}</span>
                       </div>
                       <p className="text-gray-700 mt-2">{post.content}</p>
-                      {post.hasAttachment && (
-                        <div className="mt-2 p-3 bg-gray-50 rounded-lg flex items-center space-x-2">
-                          <FileText className="h-5 w-5 text-gray-400" />
-                          <span className="text-sm text-gray-700">2024半导体行业深度报告.pdf</span>
-                        </div>
-                      )}
                       <div className="flex items-center space-x-4 mt-3 text-sm text-gray-500">
-                        <span>{post.time}</span>
-                        <span>{post.likes} 赞</span>
-                        <span>{post.comments} 评论</span>
+                        <span>{new Date(post.created_at).toLocaleString()}</span>
+                        <span>{post.like_count || 0} 赞</span>
+                        <span>{post.comment_count || 0} 评论</span>
                       </div>
                     </div>
                   </div>
+                </Link>
+              )) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-500">
+                  暂无群内讨论
                 </div>
-              ))}
+              )}
             </div>
           )}
 
@@ -282,24 +342,35 @@ export default function GroupDetail() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold">群组文件</h3>
-                <button className="flex items-center space-x-2 text-primary-600 hover:text-primary-700">
-                  <Plus className="h-4 w-4" />
-                  <span>上传文件</span>
-                </button>
+                {group?.isMember && (
+                  <div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" id="group-file-upload" />
+                    <label htmlFor="group-file-upload" className="flex items-center space-x-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 cursor-pointer text-sm">
+                      <Upload className="h-4 w-4" />
+                      <span>{uploading ? '上传中...' : '上传文件'}</span>
+                    </label>
+                  </div>
+                )}
               </div>
               <div className="space-y-3">
-                {files.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                {groupFiles.length > 0 ? groupFiles.map((file) => (
+                  <div key={file.file_id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
                     <div className="flex items-center space-x-3">
                       <FileText className="h-5 w-5 text-gray-400" />
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{file.name}</p>
-                        <p className="text-xs text-gray-500">{file.size} · {file.author} · {file.time}</p>
+                        <p className="text-sm font-medium text-gray-900">{file.filename}</p>
+                        <p className="text-xs text-gray-500">
+                          {file.file_type?.toUpperCase() || '未知'} ·
+                          {file.user_nickname || file.user_id?.slice(0, 8)} ·
+                          {file.created_at ? new Date(file.created_at).toLocaleDateString() : ''}
+                          {file.file_size ? ` · ${formatFileSize(file.file_size)}` : ''}
+                        </p>
                       </div>
                     </div>
-                    <button className="text-primary-600 hover:text-primary-700 text-sm">下载</button>
                   </div>
-                ))}
+                )) : (
+                  <div className="p-8 text-center text-gray-500">暂无文件</div>
+                )}
               </div>
             </div>
           )}
@@ -308,44 +379,26 @@ export default function GroupDetail() {
           {activeTab === 'members' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">群组成员 ({group.members})</h3>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="搜索成员..."
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm"
-                  />
-                </div>
+                <h3 className="font-semibold">群组成员 ({groupMembers.length})</h3>
               </div>
               <div className="space-y-3">
-                {members.map((member) => (
-                  <div key={member.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                {groupMembers.length > 0 ? groupMembers.map((member) => (
+                  <div key={member.user_id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
                     <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">
-                          {member.avatar}
-                        </div>
-                        {member.isOnline && (
-                          <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></div>
-                        )}
-                      </div>
+                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">👤</div>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-gray-900">{member.name}</span>
-                          {member.isProfessional && <Star className="h-4 w-4 text-yellow-500" />}
-                          {member.role === 'owner' && (
-                            <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">群主</span>
-                          )}
-                          {member.role === 'admin' && (
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">管理员</span>
-                          )}
+                          <Link to={`/profile/${member.user_id}`} className="font-medium text-gray-900 hover:text-primary-600">{member.nickname}</Link>
+                          {member.role === 'OWNER' && <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded">群主</span>}
+                          {member.role === 'ADMIN' && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">管理员</span>}
                         </div>
-                        <span className="text-xs text-gray-500">{member.level}</span>
+                        {member.joined_at && <span className="text-xs text-gray-500">加入于 {new Date(member.joined_at).toLocaleDateString()}</span>}
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="p-8 text-center text-gray-500">暂无成员</div>
+                )}
               </div>
             </div>
           )}
@@ -353,32 +406,101 @@ export default function GroupDetail() {
           {/* Polls Tab */}
           {activeTab === 'polls' && (
             <div className="space-y-4">
-              {polls.map((poll) => (
-                <div key={poll.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                  <h3 className="font-semibold text-gray-900 mb-4">{poll.title}</h3>
-                  <div className="space-y-3">
-                    {poll.options.map((option, index) => (
-                      <button
-                        key={index}
-                        disabled={poll.hasVoted}
-                        className={`w-full p-3 border rounded-lg relative ${
-                          poll.hasVoted ? 'bg-gray-50' : 'hover:bg-gray-50'
-                        }`}
-                      >
-                        <div className="absolute left-0 top-0 h-full bg-primary-200 rounded-lg transition-all" style={{ width: `${option.percentage}%` }}></div>
-                        <div className="relative flex items-center justify-between">
-                          <span className="font-medium">{option.text}</span>
-                          <span className="text-sm text-gray-600">{option.percentage}% ({option.votes}票)</span>
-                        </div>
-                      </button>
-                    ))}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+                <h3 className="font-semibold">群组投票</h3>
+                {group?.isMember && (
+                  <button onClick={() => setShowCreatePoll(true)}
+                    className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 text-sm">
+                    <Plus className="h-4 w-4 mr-1" />创建投票
+                  </button>
+                )}
+              </div>
+
+              {groupPolls.length > 0 ? groupPolls.map((poll) => {
+                const total = poll.options.reduce((s, o) => s + (o.vote_count || 0), 0) || 1
+                return (
+                  <div key={poll.poll_id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+                    <h3 className="font-semibold text-gray-900 mb-4">{poll.question}</h3>
+                    <div className="space-y-3">
+                      {poll.options.map((option) => {
+                        const pct = Math.round((option.vote_count / total) * 100)
+                        return (
+                          <button key={option.option_id}
+                            onClick={() => handleVote(poll.poll_id, option.option_id)}
+                            disabled={poll.has_voted || votingPoll === poll.poll_id}
+                            className={`w-full p-3 border rounded-lg relative text-left ${
+                              poll.has_voted ? 'bg-gray-50 cursor-default' : 'hover:bg-gray-50'
+                            }`}>
+                            <div className="absolute left-0 top-0 h-full bg-primary-200 rounded-lg transition-all"
+                              style={{ width: poll.has_voted ? `${pct}%` : '0%' }}></div>
+                            <div className="relative flex items-center justify-between">
+                              <span className="font-medium">{option.text}</span>
+                              {poll.has_voted && <span className="text-sm text-gray-600">{pct}% ({option.vote_count}票)</span>}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+                      <span>总投票数: {poll.total_votes || 0}</span>
+                      <span>{poll.has_voted ? '已投票' : '点击选项投票'}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
-                    <span>总投票数: {poll.totalVotes}</span>
-                    <span>截止时间: {poll.deadline}</span>
+                )
+              }) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center text-gray-500">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>暂无投票</p>
+                  {group?.isMember && <p className="text-sm mt-2">点击上方按钮创建投票</p>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Create Poll Modal */}
+          {showCreatePoll && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold">创建投票</h2>
+                  <button onClick={() => setShowCreatePoll(false)} className="text-gray-400 hover:text-gray-600"><X className="h-6 w-6" /></button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">投票问题</label>
+                    <input type="text" value={pollQuestion} onChange={e => setPollQuestion(e.target.value)}
+                      placeholder="输入投票问题..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">选项</label>
+                    {pollOptions.map((opt, i) => (
+                      <div key={i} className="flex items-center space-x-2 mb-2">
+                        <input type="text" value={opt} onChange={e => {
+                          const next = [...pollOptions]; next[i] = e.target.value; setPollOptions(next)
+                        }} placeholder={`选项 ${i + 1}`}
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500" />
+                        {pollOptions.length > 2 && (
+                          <button onClick={() => setPollOptions(pollOptions.filter((_, j) => j !== i))}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded"><X className="h-4 w-4" /></button>
+                        )}
+                      </div>
+                    ))}
+                    <button onClick={() => setPollOptions([...pollOptions, ''])}
+                      className="flex items-center text-sm text-primary-600 hover:text-primary-700 mt-2">
+                      <Plus className="h-4 w-4 mr-1" />添加选项
+                    </button>
+                  </div>
+                  <div className="flex space-x-3 pt-4">
+                    <button onClick={() => setShowCreatePoll(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">取消</button>
+                    <button onClick={handleCreatePoll} disabled={creatingPoll}
+                      className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                      {creatingPoll ? '创建中...' : '创建投票'}
+                    </button>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           )}
         </div>
@@ -404,12 +526,12 @@ export default function GroupDetail() {
           </div>
 
           {/* Active Poll */}
-          {polls.length > 0 && (
+          {groupPolls.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <h3 className="font-semibold mb-4">进行中的投票</h3>
               <div>
-                <p className="text-sm font-medium text-gray-900 mb-3">{polls[0].title}</p>
-                <button className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                <p className="text-sm font-medium text-gray-900 mb-3">{groupPolls[0].question}</p>
+                <button onClick={() => setActiveTab('polls')} className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
                   参与投票
                 </button>
               </div>

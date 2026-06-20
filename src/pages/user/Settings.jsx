@@ -1,17 +1,45 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { User, Lock, Bell, Shield, Globe, ChevronRight, Camera, Check } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Lock, Bell, Shield, Globe, ChevronRight, Camera, Check, Award, ClipboardList, Upload, Send } from 'lucide-react';
+import { usersService } from '../../services';
+import { post } from '../../utils/http';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Settings() {
+  const navigate = useNavigate();
+  const { user, updateUser, isAuthenticated } = useAuth();
   const [activeSection, setActiveSection] = useState('profile');
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    nickname: '价值猎人',
-    bio: '专注价值投资，相信复利的力量。分享投资心得，与志同道合者交流。',
-    location: '上海',
-    website: 'https://example.com',
-    email: 'user@example.com',
-    phone: '138****8888'
+    nickname: user?.nickname || '',
+    bio: user?.bio || '',
+    location: user?.location || '',
+    website: user?.website || '',
+    email: user?.email || '',
+    phone: user?.phone || ''
   });
+
+  // 监听用户数据变化，更新表单
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        nickname: user.nickname || '',
+        bio: user.bio || '',
+        location: user.location || '',
+        website: user.website || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      });
+    }
+  }, [user]);
+
+  // 未登录时跳转到登录页
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated]);
+
   const [investmentPreferences, setInvestmentPreferences] = useState({
     markets: ['A股', '港股'],
     style: '进取型',
@@ -32,17 +60,68 @@ export default function Settings() {
     allowMention: true
   });
 
+  const [certType, setCertType] = useState('从业资格');
+  const [certDesc, setCertDesc] = useState('');
+  const [certSubmitting, setCertSubmitting] = useState(false);
+  const [certMsg, setCertMsg] = useState('');
+
+  const assessmentQuestions = [
+    { key: 'q1', question: '您的投资经验年限是？' },
+    { key: 'q2', question: '您能承受的最大投资亏损是？' },
+    { key: 'q3', question: '您的投资主要目的是？' },
+    { key: 'q4', question: '您倾向于哪种投资品种？' },
+    { key: 'q5', question: '您是否了解杠杆交易的风险？' },
+  ];
+  const [assessmentAnswers, setAssessmentAnswers] = useState({});
+  const [assessSubmitting, setAssessSubmitting] = useState(false);
+  const [assessResult, setAssessResult] = useState(null);
+
   const sections = [
     { id: 'profile', label: '个人资料', icon: User },
     { id: 'security', label: '账号安全', icon: Lock },
     { id: 'notifications', label: '通知设置', icon: Bell },
     { id: 'privacy', label: '隐私设置', icon: Shield },
-    { id: 'preferences', label: '投资偏好', icon: Globe }
+    { id: 'preferences', label: '投资偏好', icon: Globe },
+    { id: 'certification', label: '专业认证', icon: Award },
+    { id: 'assessment', label: '风险评估', icon: ClipboardList },
   ];
 
-  const handleSaveProfile = () => {
-    console.warn('Saving profile:', formData);
-    alert('资料保存成功');
+  const handleSaveProfile = async () => {
+    // 兼容 user_id 和 id 两种字段名
+    const userId = user?.user_id || user?.id;
+    
+    if (!userId) {
+      alert('用户信息异常，请重新登录');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      // 调用后端 API 更新用户信息
+      // 后端 UserBase schema 要求 email 或 phone 至少一个必填
+      const updatedUser = await usersService.updateUser(userId, {
+        nickname: formData.nickname,
+        bio: formData.bio,
+        email: formData.email || user.email, // 保留原有 email
+        phone: formData.phone || user.phone, // 保留原有 phone
+        location: formData.location,
+        website: formData.website
+      });
+      
+      // 更新 AuthContext 中的用户信息
+      updateUser(updatedUser);
+      
+      alert('资料保存成功');
+    } catch (err) {
+      console.error('Failed to save profile:', err);
+      // 显示更详细的错误信息
+      const errorMsg = err.data?.detail 
+        ? (Array.isArray(err.data.detail) ? err.data.detail.map(d => d.msg).join(', ') : err.data.detail)
+        : (err.message || '请稍后重试');
+      alert('保存失败: ' + errorMsg);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSavePreferences = () => {
@@ -464,6 +543,106 @@ export default function Settings() {
                     保存偏好
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* 专业认证 */}
+          {activeSection === 'certification' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-2">专业认证</h2>
+              <p className="text-sm text-gray-500 mb-6">上传从业资格、学历证明等材料申请加V认证，审核通过后账号将显示专业标识。</p>
+
+              {certMsg && (
+                <div className={`p-3 rounded-lg mb-4 text-sm ${certMsg.includes('成功') ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                  {certMsg}
+                </div>
+              )}
+
+              {user?.auth_level === 'EXPERT' && (
+                <div className="p-4 bg-green-50 rounded-lg mb-6 flex items-center space-x-2">
+                  <Award className="h-6 w-6 text-green-600" />
+                  <span className="text-green-700 font-medium">您已通过专业认证，账号已加V</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">认证类型</label>
+                  <select value={certType} onChange={e => setCertType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <option>从业资格</option>
+                    <option>学历证明</option>
+                    <option>职业资质</option>
+                    <option>投资业绩证明</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">说明（选填）</label>
+                  <textarea value={certDesc} onChange={e => setCertDesc(e.target.value)} rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                    placeholder="请简要说明您的专业背景..." />
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 text-center">
+                  <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">点击或拖拽上传证明材料（PDF/图片）</p>
+                  <p className="text-xs text-gray-400 mt-1">支持 .pdf, .jpg, .png，最大 10MB</p>
+                </div>
+                <button onClick={async () => {
+                  setCertSubmitting(true); setCertMsg('');
+                  try {
+                    await post('/admin/certifications', { cert_type: certType, description: certDesc || undefined });
+                    setCertMsg('提交成功！管理员将在1-3个工作日内审核。');
+                    setCertDesc('');
+                  } catch (e) { setCertMsg('提交失败: ' + (e.message || '')); }
+                  finally { setCertSubmitting(false); }
+                }} disabled={certSubmitting}
+                  className="flex items-center px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                  <Send className="h-4 w-4 mr-2" />
+                  {certSubmitting ? '提交中...' : '提交认证申请'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 风险评估 */}
+          {activeSection === 'assessment' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-2">投资者风险评估</h2>
+              <p className="text-sm text-gray-500 mb-6">完成以下问卷，系统将评估您的风险承受能力并匹配适合的投资建议。</p>
+
+              {assessResult && (
+                <div className="p-4 bg-blue-50 rounded-lg mb-6">
+                  <p className="font-medium text-blue-800">评估结果：{assessResult.risk_level}</p>
+                  <p className="text-sm text-blue-600 mt-1">得分：{assessResult.score} 分</p>
+                  <p className="text-xs text-blue-500 mt-1">{'（得分 ≥ 20：进取型，≥ 12：稳健型，\u003C 12：保守型）'}</p>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                {assessmentQuestions.map((q) => (
+                  <div key={q.key}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{q.question}</label>
+                    <input type="text" value={assessmentAnswers[q.key] || ''}
+                      onChange={e => setAssessmentAnswers({ ...assessmentAnswers, [q.key]: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="请输入您的回答..." />
+                  </div>
+                ))}
+                <button onClick={async () => {
+                  const answers = assessmentQuestions.map(q => ({ question: q.question, answer: assessmentAnswers[q.key] || '' }));
+                  if (answers.some(a => !a.answer)) { alert('请回答所有问题'); return; }
+                  setAssessSubmitting(true);
+                  try {
+                    const res = await post('/admin/risk-assessments', { answers });
+                    setAssessResult({ score: res.score, risk_level: res.risk_level });
+                  } catch (e) { alert('提交失败: ' + (e.message || '')); }
+                  finally { setAssessSubmitting(false); }
+                }} disabled={assessSubmitting}
+                  className="flex items-center px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  {assessSubmitting ? '提交中...' : '提交评估'}
+                </button>
               </div>
             </div>
           )}

@@ -3,6 +3,7 @@
  * Supports Bearer token authentication for backend API
  */
 import { API_BASE_URL, REQUEST_TIMEOUT, TOKEN_STORAGE_KEY } from '../constants/api';
+import { getStorage, removeStorage } from './storage';
 
 class ApiError extends Error {
   constructor(message, status, data) {
@@ -19,8 +20,8 @@ class ApiError extends Error {
  */
 const getAuthToken = () => {
   try {
-    const prefix = 'sfif_';
-    const token = localStorage.getItem(`${prefix}${TOKEN_STORAGE_KEY.replace(prefix, '')}`);
+    // 使用 getStorage 读取，它会自动处理前缀和 JSON 解析
+    const token = getStorage(TOKEN_STORAGE_KEY, null);
     return token;
   } catch {
     return null;
@@ -84,8 +85,7 @@ export const request = async (
       // If 401, clear stored token
       if (response.status === 401) {
         try {
-          const prefix = 'sfif_';
-          localStorage.removeItem(`${prefix}${TOKEN_STORAGE_KEY.replace(prefix, '')}`);
+          removeStorage(TOKEN_STORAGE_KEY);
         } catch {
           // Ignore storage errors
         }
@@ -187,5 +187,55 @@ export const uploadFile = async (endpoint, formData, options = {}) => {
     throw error;
   }
 };
+/**
+ * POST request with Form Data (application/x-www-form-urlencoded)
+ * Specifically for OAuth2 login compatibility
+ */
+export const postForm = async (endpoint, data, options = {}) => {
+  const { timeout = REQUEST_TIMEOUT } = options;
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  // 构建表单字符串: key1=value1&key2=value2
+  const formBody = Object.keys(data)
+    .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(data[key]))
+    .join('&');
+
+  const headers = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formBody,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const responseData = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new ApiError(
+        responseData.detail || responseData.message || `HTTP ${response.status}`,
+        response.status,
+        responseData
+      );
+    }
+
+    return responseData;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new ApiError('请求超时', 408, null);
+    }
+    throw error;
+  }
+};
+
 
 export { ApiError };

@@ -1,10 +1,14 @@
 import { useParams, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { ThumbsUp, MessageSquare, Share2, Bookmark, Eye, Clock, Send, MoreHorizontal, Award, Loader } from 'lucide-react'
+import { ThumbsUp, MessageSquare, Share2, Bookmark, Eye, Clock, Send, MoreHorizontal, Award, Loader, ChevronDown, ChevronRight, Copy } from 'lucide-react'
 import { postsService, commentsService } from '../../services'
+import { post as httpPost, deleteRequest, get } from '../../utils/http'
+import { API_ENDPOINTS } from '../../constants/api'
+import { useAuth } from '../../context/AuthContext'
 
 export default function PostDetail() {
   const { postId } = useParams()
+  const { isAuthenticated } = useAuth()
   const [post, setPost] = useState(null)
   const [comments, setComments] = useState([])
   const [liked, setLiked] = useState(false)
@@ -13,6 +17,26 @@ export default function PostDetail() {
   const [commentText, setCommentText] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [expandedReplies, setExpandedReplies] = useState({})
+  const [childComments, setChildComments] = useState({})
+  const [copied, setCopied] = useState(false)
+
+  const loadReplies = async (parentId) => {
+    try {
+      const res = await commentsService.getPostComments(postId, { page: 1, per_page: 50, parent_comment_id: parentId })
+      const replies = res.items || res || []
+      setChildComments(prev => ({ ...prev, [parentId]: replies }))
+      setExpandedReplies(prev => ({ ...prev, [parentId]: true }))
+    } catch { setChildComments(prev => ({ ...prev, [parentId]: [] })) }
+  }
+
+  const toggleReplies = (commentId) => {
+    if (expandedReplies[commentId]) {
+      setExpandedReplies(prev => ({ ...prev, [commentId]: false }))
+    } else {
+      loadReplies(commentId)
+    }
+  }
 
   // 加载帖子详情和评论
   useEffect(() => {
@@ -29,6 +53,14 @@ export default function PostDetail() {
 
         setPost(postRes)
         setComments(commentsRes.items || commentsRes || [])
+        
+        // 检查是否已收藏（从后端查询）
+        if (isAuthenticated) {
+          try {
+            const eng = await get(`${API_ENDPOINTS.ENGAGEMENTS}?content_id=${postId}&content_type=POST&engagement_type=BOOKMARK`)
+            setBookmarked(eng.exists || false)
+          } catch { setBookmarked(false) }
+        }
       } catch (err) {
         console.error('Failed to fetch post data:', err)
         setError(err.message || '加载数据失败')
@@ -43,17 +75,44 @@ export default function PostDetail() {
   }, [postId])
 
   const handleLike = async () => {
+    if (!isAuthenticated) {
+      alert('请先登录')
+      return
+    }
     try {
+      if (liked) {
+        await postsService.unlikePost(postId)
+      } else {
+        await postsService.likePost(postId)
+      }
       setLiked(!liked)
-      // TODO: Call API to like post
-      console.warn('Like post:', postId)
+      setPost(prev => prev ? { ...prev, like_count: (prev.like_count || 0) + (liked ? -1 : 1) } : prev)
     } catch (err) {
-      console.error('Failed to like post:', err)
+      console.error('Failed to toggle like:', err)
     }
   }
 
-  const handleBookmark = () => {
-    setBookmarked(!bookmarked)
+  const handleBookmark = async () => {
+    if (!isAuthenticated) {
+      alert('请先登录')
+      return
+    }
+
+    try {
+      if (bookmarked) {
+        await deleteRequest(API_ENDPOINTS.ENGAGEMENTS, {
+          body: { content_id: postId, content_type: 'POST', engagement_type: 'BOOKMARK' }
+        })
+        setBookmarked(false)
+      } else {
+        await httpPost(API_ENDPOINTS.ENGAGEMENTS, {
+          content_id: postId, content_type: 'POST', engagement_type: 'BOOKMARK'
+        })
+        setBookmarked(true)
+      }
+    } catch (err) {
+      console.error('Failed to toggle bookmark:', err)
+    }
   }
 
   const handleReply = (commentId) => {
@@ -98,22 +157,19 @@ export default function PostDetail() {
       </div>
     )
   }
-  // 渲染评论
-  const renderComment = (comment, depth = 0) => {
-    const marginLeft = depth * 4
+  const renderComment = (comment, depth = 0, isChild = false) => {
     const replyingComment = replyingTo === comment.comment_id
+    const hasReplies = childComments[comment.comment_id]?.length > 0
 
     return (
-      <div key={comment.comment_id} className={`${marginLeft > 0 ? `ml-${marginLeft} border-l-2 border-gray-200 pl-4` : ''} py-4`}>
+      <div key={comment.comment_id} className={`${depth > 0 ? 'ml-6 border-l-2 border-gray-100 pl-4' : ''} ${!isChild ? 'py-4 border-t border-gray-100 first:border-t-0' : 'py-3'}`}>
         <div className="flex space-x-3">
           <div className="flex-shrink-0">
-            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">
-              👤
-            </div>
+            <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">👤</div>
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-2">
-              <span className="font-medium text-gray-900">{comment.user_id}</span>
+              <span className="font-medium text-gray-900">{comment.user_id?.slice(0, 8) || '匿名'}</span>
               <span className="text-xs text-gray-400">{new Date(comment.created_at).toLocaleString()}</span>
             </div>
             <div className="mt-2 text-gray-700 whitespace-pre-wrap">{comment.content}</div>
@@ -122,38 +178,36 @@ export default function PostDetail() {
                 <ThumbsUp className="h-4 w-4" />
                 <span>{comment.like_count || 0}</span>
               </button>
-              <button
-                onClick={() => handleReply(comment.comment_id)}
-                className="flex items-center space-x-1 hover:text-primary-600"
-              >
+              <button onClick={() => handleReply(comment.comment_id)} className="flex items-center space-x-1 hover:text-primary-600">
                 <MessageSquare className="h-4 w-4" />
                 <span>回复</span>
               </button>
             </div>
 
+            {/* Load replies button */}
+            {depth < 3 && (
+              <button onClick={() => toggleReplies(comment.comment_id)} className="mt-1 flex items-center text-xs text-primary-600 hover:text-primary-700">
+                {expandedReplies[comment.comment_id] ? <ChevronDown className="h-3 w-3 mr-1" /> : <ChevronRight className="h-3 w-3 mr-1" />}
+                {hasReplies ? `${childComments[comment.comment_id].length} 条回复` : '查看回复'}
+              </button>
+            )}
+
             {/* Reply Input */}
             {replyingComment && (
               <div className="mt-3 flex space-x-2">
-                <input
-                  type="text"
-                  placeholder="输入回复..."
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
+                <input type="text" placeholder="输入回复..." value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSubmitComment()}
-                />
-                <button
-                  onClick={handleSubmitComment}
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
-                >
-                  <Send className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setReplyingTo(null)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  取消
-                </button>
+                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleSubmitComment())} />
+                <button onClick={handleSubmitComment} className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"><Send className="h-4 w-4" /></button>
+                <button onClick={() => setReplyingTo(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">取消</button>
+              </div>
+            )}
+
+            {/* Child comments */}
+            {expandedReplies[comment.comment_id] && childComments[comment.comment_id]?.length > 0 && (
+              <div className="mt-2">
+                {childComments[comment.comment_id].map(reply => renderComment(reply, depth + 1, true))}
               </div>
             )}
           </div>
@@ -192,7 +246,7 @@ export default function PostDetail() {
                     </div>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{post.user_id}</span>
+                        <span className="font-medium text-gray-900">{post.user_nickname || post.user_id?.slice(0, 8)}</span>
                       </div>
                     </div>
                   </Link>
@@ -212,8 +266,14 @@ export default function PostDetail() {
 
             {/* Post Body */}
             <div className="p-6">
-              <div className="prose prose-blue max-w-none text-gray-700 whitespace-pre-line">
-                {post.content}
+              <div className="prose prose-blue max-w-none text-gray-700">
+                {post.content.split(/(!\[.*?\]\(.*?\))/g).map((part, i) => {
+                  const imgMatch = part.match(/^!\[(.*?)\]\((.*?)\)$/)
+                  if (imgMatch) {
+                    return <img key={i} src={imgMatch[2]} alt={imgMatch[1]} className="max-w-full rounded-lg my-2" onError={e => { e.target.style.display = 'none' }} />
+                  }
+                  return <span key={i} className="whitespace-pre-line">{part}</span>
+                })}
               </div>
               
               {/* Tags - 若后端提供 */}
@@ -246,9 +306,13 @@ export default function PostDetail() {
                   <MessageSquare className="h-5 w-5" />
                   <span>{post.comment_count || 0}</span>
                 </button>
-                <button className="flex items-center space-x-2 text-gray-500 hover:text-primary-600">
-                  <Share2 className="h-5 w-5" />
-                  <span>分享</span>
+                <button onClick={() => {
+                  navigator.clipboard.writeText(window.location.href).then(() => {
+                    setCopied(true); setTimeout(() => setCopied(false), 2000)
+                  }).catch(() => {})
+                }} className="flex items-center space-x-2 text-gray-500 hover:text-primary-600">
+                  {copied ? <Copy className="h-5 w-5 text-green-500" /> : <Share2 className="h-5 w-5" />}
+                  <span>{copied ? '已复制' : '分享'}</span>
                 </button>
                 <button
                   onClick={handleBookmark}
@@ -276,7 +340,7 @@ export default function PostDetail() {
                 <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center text-xl">👤</div>
                 <div className="flex-1">
                   <textarea
-                    placeholder="发表你的看法..."
+                    placeholder="发表你的看法... 输入 @用户名 可提及他人"
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
                     rows={3}

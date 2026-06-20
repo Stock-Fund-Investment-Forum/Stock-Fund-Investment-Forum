@@ -39,8 +39,8 @@ export default function Home() {
           groupsService.getGroups()
         ])
 
-        // 处理帖子数据：精选帖子（是essence的）和最近帖子
-        const posts = postsRes.items || []
+        // 处理帖子数据：后端返回的是数组格式
+        const posts = Array.isArray(postsRes) ? postsRes : (postsRes.items || [])
         const featured = posts.filter(p => p.is_essence).slice(0, 3)
         const recent = posts.slice(0, 4)
 
@@ -48,7 +48,7 @@ export default function Home() {
         setRecentPosts(recent)
 
         // 处理热门标签（取usage_count最高的）
-        const tagsList = Array.isArray(tagsRes) ? tagsRes : tagsRes.items || []
+        const tagsList = Array.isArray(tagsRes) ? tagsRes : (tagsRes.items || [])
         const sorted = tagsList
           .sort((a, b) => (b.usage_count || 0) - (a.usage_count || 0))
           .slice(0, 10)
@@ -61,7 +61,7 @@ export default function Home() {
         setHotTopics(sorted)
 
         // 处理推荐群组
-        const groupsList = Array.isArray(groupsRes) ? groupsRes : groupsRes.items || []
+        const groupsList = Array.isArray(groupsRes) ? groupsRes : (groupsRes.items || [])
         setGroups(groupsList.slice(0, 3))
       } catch (err) {
         console.error('Failed to fetch home data:', err)

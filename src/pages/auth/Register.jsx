@@ -8,7 +8,7 @@ export default function Register() {
   const [formData, setFormData] = useState({
     email: '',
     phone: '',
-    code: '',
+    // code: '',
     password: '',
     confirmPassword: '',
     agreeTerms: false
@@ -73,65 +73,120 @@ export default function Register() {
     }, 1000);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
 
-    setError('');
+  //   setError('');
 
-    // Validate based on registration type
-    if (registerType === 'phone') {
-      if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
-        setError('请输入有效的手机号码');
-        return;
-      }
-    } else {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-        setError('请输入有效的邮箱地址');
-        return;
-      }
-    }
+  //   // Validate based on registration type
+  //   if (registerType === 'phone') {
+  //     if (!/^1[3-9]\d{9}$/.test(formData.phone.trim())) {
+  //       setError('请输入有效的手机号码');
+  //       return;
+  //     }
+  //   } else {
+  //     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+  //       setError('请输入有效的邮箱地址');
+  //       return;
+  //     }
+  //   }
 
-    if (!codeSent || !/^[0-9]{6}$/.test(formData.code.trim())) {
-      setError('请先获取并填写 6 位验证码');
-      return;
-    }
+  //   if (!codeSent || !/^[0-9]{6}$/.test(formData.code.trim())) {
+  //     setError('请先获取并填写 6 位验证码');
+  //     return;
+  //   }
 
-    if (!formData.agreeTerms) {
-      setError('请先同意用户协议和隐私政策');
-      return;
-    }
+  //   if (!formData.agreeTerms) {
+  //     setError('请先同意用户协议和隐私政策');
+  //     return;
+  //   }
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('两次输入的密码不一致');
-      return;
-    }
+  //   if (formData.password !== formData.confirmPassword) {
+  //     setError('两次输入的密码不一致');
+  //     return;
+  //   }
 
-    if (formData.password.length < 8 || formData.password.length > 20) {
-      setError('密码长度应为8-20位');
-      return;
-    }
+  //   if (formData.password.length < 8 || formData.password.length > 20) {
+  //     setError('密码长度应为8-20位');
+  //     return;
+  //   }
 
-    try {
-      const identifier = registerType === 'phone' ? formData.phone.trim() : formData.email.trim();
-      const username = registerType === 'phone' 
-        ? `用户${formData.phone.slice(-4)}`
-        : formData.email.split('@')[0];
+  //   try {
+  //     const identifier = registerType === 'phone' ? formData.phone.trim() : formData.email.trim();
+  //     const username = registerType === 'phone' 
+  //       ? `用户${formData.phone.slice(-4)}`
+  //       : formData.email.split('@')[0];
       
-      await register({
-        nickname: username,
-        email: registerType === 'email' ? formData.email.trim() : undefined,
-        phone: registerType === 'phone' ? formData.phone.trim() : undefined,
-        password: formData.password
-      });
-      navigate(from);
-      setTimeout(() => {
-        window.scrollTo(0, scrollY);
-      }, 0);
-    } catch (err) {
-      setError(err.message || '注册失败，请重试');
-    }
+  //     await register({
+  //       nickname: username,
+  //       email: registerType === 'email' ? formData.email.trim() : undefined,
+  //       phone: registerType === 'phone' ? formData.phone.trim() : undefined,
+  //       password: formData.password
+  //     });
+  //     navigate(from);
+  //     setTimeout(() => {
+  //       window.scrollTo(0, scrollY);
+  //     }, 0);
+  //   } catch (err) {
+  //     setError(err.message || '注册失败，请重试');
+  //   }
+  // };
+
+  // Register.jsx handleSubmit
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+
+  // 1. 基础校验
+  const identifier = registerType === 'phone' ? formData.phone.trim() : formData.email.trim();
+  
+  if (!identifier) {
+    setError(registerType === 'phone' ? '请输入手机号' : '请输入邮箱');
+    return;
+  }
+  
+  if (!formData.agreeTerms) {
+    setError('请先同意用户协议和隐私政策');
+    return;
+  }
+
+  if (formData.password !== formData.confirmPassword) {
+    setError('两次输入的密码不一致');
+    return;
+  }
+
+  if (formData.password.length < 8) {
+      setError('密码长度至少为8位');
+      return;
+  }
+
+  // 【新增】密码强度校验
+  const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,20}$/;
+  if (!passwordRegex.test(formData.password)) {
+    setError('密码长度需为8-20位，且必须包含字母和数字');
+    return;
+  }
+
+  // 2. 构造数据
+  const payload = {
+    nickname: formData.nickname || (registerType === 'phone' ? `用户${formData.phone.slice(-4)}` : formData.email.split('@')[0]),
+    password: formData.password,
   };
 
+  if (registerType === 'email') {
+    payload.email = formData.email.trim();
+  } else {
+    payload.phone = formData.phone.trim();
+  }
+
+  // 3. 调用注册
+  try {
+    await register(payload);
+    navigate(from);
+  } catch (err) {
+    setError(err.message || '注册失败，请重试');
+  }
+};
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8 relative">
       <button onClick={handleBack} className="absolute top-8 left-8 p-2 text-gray-600 hover:text-gray-900">
@@ -238,37 +293,6 @@ export default function Register() {
                 </div>
               </div>
             )}
-
-            <div>
-              <label htmlFor="code" className="block text-sm font-medium text-gray-700">
-                验证码
-              </label>
-              <div className="mt-1 flex space-x-2">
-                <div className="relative flex-1">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Shield className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="code"
-                    name="code"
-                    type="text"
-                    required
-                    className="appearance-none relative block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                    placeholder="请输入验证码"
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleSendCode}
-                  disabled={countdown > 0}
-                  className="px-4 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                >
-                  {countdown > 0 ? `${countdown}秒后重试` : '获取验证码'}
-                </button>
-              </div>
-            </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700">
