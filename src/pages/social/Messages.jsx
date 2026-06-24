@@ -7,7 +7,8 @@ import { get } from '../../utils/http'
 export default function Messages() {
   const [searchParams] = useSearchParams()
   const toUserId = searchParams.get('to')
-  const [activeTab, setActiveTab] = useState('private')
+  const initialTab = searchParams.get('tab') || 'private'
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [conversations, setConversations] = useState([])
   const [notifications, setNotifications] = useState([])
   const [selectedConv, setSelectedConv] = useState(null)

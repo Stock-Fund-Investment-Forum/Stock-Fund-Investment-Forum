@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { MessageSquare, ThumbsUp, Eye, Clock, TrendingUp, Star, Award, Plus, Loader } from 'lucide-react'
 import { postsService, tagsService, groupsService } from '../services'
+import { formatTime } from '../utils/dates'
 
 export default function Home() {
   const [featuredPosts, setFeaturedPosts] = useState([])
@@ -11,20 +12,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // 时间格式化辅助函数
-  const formatTime = (timestamp) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diff = now - date
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-
-    if (minutes < 60) return `${minutes}分钟前`
-    if (hours < 24) return `${hours}小时前`
-    if (days < 7) return `${days}天前`
-    return date.toLocaleDateString()
-  }
+  // use shared formatTime from utils/dates
 
   useEffect(() => {
     const fetchData = async () => {

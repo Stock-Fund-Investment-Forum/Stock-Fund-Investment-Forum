@@ -68,7 +68,7 @@ export default function Header(props) {
               // --- 已登录状态 ---
               <div className="flex items-center space-x-4">
                 {/* 通知铃铛 (可以后续集成真实通知数量) */}
-                <button className="relative p-2 text-gray-600 hover:text-primary-600">
+                <button onClick={() => navigate('/messages?tab=notifications')} className="relative p-2 text-gray-600 hover:text-primary-600">
                   <Bell className="h-6 w-6" />
                   <span className="absolute top-0 right-0 h-2 w-2 bg-red-500 rounded-full"></span>
                 </button>

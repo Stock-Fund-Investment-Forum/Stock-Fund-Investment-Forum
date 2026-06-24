@@ -5,6 +5,7 @@ import { postsService, commentsService } from '../../services'
 import { post as httpPost, deleteRequest, get } from '../../utils/http'
 import { API_ENDPOINTS } from '../../constants/api'
 import { useAuth } from '../../context/AuthContext'
+import { parseIsoDate } from '../../utils/dates'
 
 export default function PostDetail() {
   const { postId } = useParams()
@@ -45,11 +46,49 @@ export default function PostDetail() {
         setLoading(true)
         setError(null)
 
-        // 并行获取帖子和评论
-        const [postRes, commentsRes] = await Promise.all([
-          postsService.getPost(postId),
-          commentsService.getPostComments(postId, { page: 1, per_page: 50 })
-        ])
+        // Use a simple in-memory cache on window to avoid duplicate GET requests
+        // during React StrictMode double-mount in development which would cause
+        // the backend to increment view_count twice.
+        const cache = (typeof window !== 'undefined') ? (window.__sfif_postCache = window.__sfif_postCache || {}) : null
+
+        let postRes
+        let commentsRes
+
+        if (cache && cache[postId]) {
+          // cache[postId] may be a Promise (in-flight) or the resolved post object
+          if (typeof cache[postId].then === 'function') {
+            // In-flight: await the promise to get the post, avoid duplicate network call
+            postRes = await cache[postId]
+          } else {
+            // Resolved cached object
+            postRes = cache[postId]
+          }
+          // Still fetch comments fresh
+          commentsRes = await commentsService.getPostComments(postId, { page: 1, per_page: 50 })
+        } else {
+          // Create a promise in cache immediately to deduplicate concurrent calls
+          if (cache) {
+            const p = postsService.getPost(postId)
+              .then(res => {
+                // replace promise with resolved value
+                cache[postId] = res
+                return res
+              })
+              .catch(err => {
+                // clear cache on error so future attempts can retry
+                delete cache[postId]
+                throw err
+              })
+            cache[postId] = p
+            postRes = await p
+          } else {
+            // No window available (SSR unlikely), just fetch
+            postRes = await postsService.getPost(postId)
+          }
+
+          // Fetch comments in parallel with post promise when possible
+          commentsRes = await commentsService.getPostComments(postId, { page: 1, per_page: 50 })
+        }
 
         setPost(postRes)
         setComments(commentsRes.items || commentsRes || [])
@@ -72,7 +111,7 @@ export default function PostDetail() {
     if (postId) {
       fetchPostData()
     }
-  }, [postId])
+  }, [postId, isAuthenticated])
 
   const handleLike = async () => {
     if (!isAuthenticated) {
@@ -254,7 +293,7 @@ export default function PostDetail() {
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
                   <span className="flex items-center">
                     <Clock className="h-4 w-4 mr-1" />
-                    {new Date(post.created_at).toLocaleString()}
+                    {parseIsoDate(post.created_at).toLocaleString()}
                   </span>
                   <span className="flex items-center">
                     <Eye className="h-4 w-4 mr-1" />
@@ -279,15 +318,20 @@ export default function PostDetail() {
               {/* Tags - 若后端提供 */}
               {post.tags && post.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-6">
-                  {post.tags.map((tag) => (
-                    <Link
-                      key={tag}
-                      to={`/search?q=${tag}`}
-                      className="text-sm text-primary-600 bg-primary-50 px-3 py-1 rounded-full hover:bg-primary-100"
-                    >
-                      #{tag}
-                    </Link>
-                  ))}
+                  {post.tags.map((tag) => {
+                    // Backend may return tag as object { name, tag_id, ... } or as string
+                    const tagName = typeof tag === 'string' ? tag : (tag.name || '');
+                    const tagKey = (tag && tag.tag_id) || tagName;
+                    return (
+                      <Link
+                        key={tagKey}
+                        to={`/search?q=${encodeURIComponent(tagName)}`}
+                        className="text-sm text-primary-600 bg-primary-50 px-3 py-1 rounded-full hover:bg-primary-100"
+                      >
+                        #{tagName}
+                      </Link>
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -389,7 +433,7 @@ export default function PostDetail() {
               </div>
               <div className="flex justify-between">
                 <span>发布时间:</span>
-                <span className="font-medium">{new Date(post.created_at).toLocaleDateString()}</span>
+                <span className="font-medium">{parseIsoDate(post.created_at).toLocaleDateString()}</span>
               </div>
               <div className="flex justify-between">
                 <span>浏览:</span>

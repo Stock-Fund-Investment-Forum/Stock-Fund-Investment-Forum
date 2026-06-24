@@ -2,12 +2,14 @@ import { useParams, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { MessageSquare, ThumbsUp, Eye, Clock, Filter, Plus, Loader } from 'lucide-react'
 import { postsService } from '../../services'
+import { parseIsoDate } from '../../utils/dates'
 
 export default function ForumSection() {
   const { section } = useParams()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [sortBy, setSortBy] = useState('created_at')
 
   const sectionNames = {
     'a-stock': 'A股讨论区',
@@ -28,13 +30,22 @@ export default function ForumSection() {
       try {
         setLoading(true)
         setError(null)
-        
         // 使用 /posts?board_id=xxx 接口获取该板块的帖子
-        const response = await postsService.getPosts({ 
-          board_id: section,
-          page: 1, 
-          per_page: 20 
-        })
+        const params = { board_id: section, page: 1, per_page: 20 }
+        // map sortBy to API params
+        if (sortBy === 'created_at') {
+          params.order_by = 'created_at'
+        } else if (sortBy === 'comment_count') {
+          params.order_by = 'comment_count'
+        } else if (sortBy === 'like_count') {
+          params.order_by = 'like_count'
+        } else if (sortBy === 'essence') {
+          // show essence posts only, order by created_at (latest essence)
+          params.is_essence = true
+          params.order_by = 'created_at'
+        }
+
+        const response = await postsService.getPosts(params)
         const postsData = Array.isArray(response) ? response : (response.items || [])
         setPosts(postsData)
       } catch (err) {
@@ -48,7 +59,7 @@ export default function ForumSection() {
     if (section) {
       fetchPosts()
     }
-  }, [section])
+  }, [section, sortBy])
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6">
@@ -86,11 +97,11 @@ export default function ForumSection() {
                 </button>
               </div>
               <div className="flex items-center space-x-2">
-                <select className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
-                  <option>最新发布</option>
-                  <option>最多回复</option>
-                  <option>最多点赞</option>
-                  <option>精华帖</option>
+                <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                  <option value="created_at">最新发布</option>
+                  <option value="comment_count">最多回复</option>
+                  <option value="like_count">最多点赞</option>
+                  <option value="essence">精华帖</option>
                 </select>
               </div>
             </div>
@@ -140,7 +151,7 @@ export default function ForumSection() {
                           </span>
                           <span className="flex items-center">
                             <Clock className="h-4 w-4 mr-1" />
-                            {new Date(post.created_at).toLocaleString()}
+                            {parseIsoDate(post.created_at).toLocaleString()}
                           </span>
                         </div>
                       </div>

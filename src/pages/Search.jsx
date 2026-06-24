@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { Search as SearchIcon, Filter, Clock, TrendingUp, FileText, User, Loader, X } from 'lucide-react'
 import { postsService, usersService, stocksService } from '../services'
+import { parseIsoDate } from '../utils/dates'
 
 const SUGGESTIONS = ['贵州茅台', '新能源', '量化交易', '基金定投', '港股', '美股', 'A股', '半导体']
 
@@ -27,7 +28,7 @@ export default function Search() {
     essenceOnly: false,
   })
 
-  const doSearch = async (q) => {
+  const doSearch = useCallback(async (q) => {
     if (!q) { setPosts([]); setUsers([]); setStocks([]); return }
     setLoading(true); setError(null)
     try {
@@ -54,11 +55,11 @@ export default function Search() {
       setStocks(Array.isArray(stocksRes) ? stocksRes : stocksRes.items || [])
     } catch (err) { setError(err.message || '搜索失败') }
     finally { setLoading(false) }
-  }
-
+  }, [filters])
+  
   useEffect(() => {
     if (queryParam) { doSearch(queryParam, activeTab) }
-  }, [queryParam, filters, activeTab])
+  }, [queryParam, doSearch, activeTab])
 
   const handleSearch = (q) => {
     const term = (q || inputValue).trim()
@@ -248,7 +249,7 @@ export default function Search() {
                             <p className="text-sm text-gray-500 line-clamp-2 mb-2">{post.content}</p>
                             <div className="flex items-center space-x-4 text-sm text-gray-500">
                               <span>{post.user_nickname || post.user_id?.slice(0, 8)}</span>
-                              <span><Clock className="h-4 w-4 inline mr-1" />{new Date(post.created_at).toLocaleString()}</span>
+                              <span><Clock className="h-4 w-4 inline mr-1" />{parseIsoDate(post.created_at).toLocaleString()}</span>
                               <span>{post.view_count || 0} 浏览</span>
                               <span>{post.like_count || 0} 点赞</span>
                             </div>

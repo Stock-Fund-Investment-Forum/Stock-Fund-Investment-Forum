@@ -101,9 +101,29 @@ export const request = async (
     return data;
   } catch (error) {
     clearTimeout(timeoutId);
+    
+    // 添加详细的错误日志
+    console.error('HTTP请求失败:', {
+      url,
+      method,
+      error: error.message,
+      errorName: error.name,
+      errorCode: error.code,
+    });
+    
     if (error.name === 'AbortError') {
       throw new ApiError('请求超时', 408, null);
     }
+    
+    // 处理网络错误（如CORS、连接被拒绝等）
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.error('网络错误 - 可能的原因:');
+      console.error('1. 后端服务未启动');
+      console.error('2. CORS配置问题');
+      console.error('3. 网络连接问题');
+      console.error('4. 防火墙阻止请求');
+    }
+    
     throw error;
   }
 };

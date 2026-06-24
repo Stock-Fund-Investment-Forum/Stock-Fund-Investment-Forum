@@ -2,8 +2,11 @@ import { useParams, Link } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
 import { Users, FileText, MessageSquare, Settings, Send, Lock, Globe, TrendingUp, Loader, Upload, Plus, X, BarChart3 } from 'lucide-react'
 import { groupsService, postsService } from '../../services'
+import { parseIsoDate } from '../../utils/dates'
 import { post, get } from '../../utils/http'
 import { useAuth } from '../../context/AuthContext'
+// Emoji pool used for group cover icons (module-level to keep stable identity)
+const EMOJI_COVER = ['🔬', '🚀', '📊', '💰', '🏭', '🌍', '🎯', '🤖']
 
 export default function GroupDetail() {
   const { groupId } = useParams()
@@ -25,8 +28,6 @@ export default function GroupDetail() {
   const [creatingPoll, setCreatingPoll] = useState(false)
   const [error, setError] = useState(null)
   const fileInputRef = useRef(null)
-
-  const EMOJI_COVER = ['🔬', '🚀', '📊', '💰', '🏭', '🌍', '🎯', '🤖']
 
   useEffect(() => {
     const fetchGroup = async () => {
@@ -322,7 +323,7 @@ export default function GroupDetail() {
                       </div>
                       <p className="text-gray-700 mt-2">{post.content}</p>
                       <div className="flex items-center space-x-4 mt-3 text-sm text-gray-500">
-                        <span>{new Date(post.created_at).toLocaleString()}</span>
+                        <span>{parseIsoDate(post.created_at).toLocaleString()}</span>
                         <span>{post.like_count || 0} 赞</span>
                         <span>{post.comment_count || 0} 评论</span>
                       </div>

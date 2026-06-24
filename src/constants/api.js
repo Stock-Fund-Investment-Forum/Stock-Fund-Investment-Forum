@@ -4,7 +4,9 @@
  */
 
 const API_URL = import.meta.env.VITE_API_URL || '';
-const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || '';
+// Ensure a sensible default so that when no .env is provided the dev client
+// will still call the proxied path `/api/v1/...` (which Vite proxies to backend).
+const API_BASE_PATH = import.meta.env.VITE_API_BASE_PATH || '/api/v1';
 
 export const API_BASE_URL = `${API_URL}${API_BASE_PATH}`;
 

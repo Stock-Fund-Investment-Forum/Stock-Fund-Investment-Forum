@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Bold, Italic, List, Link as LinkIcon, Image, Eye, Send, X, Plus, Trash2, FileText, BarChart3 } from 'lucide-react'
+import { Bold, Italic, List, Link as LinkIcon, Eye, Send, X, Plus, Trash2, FileText, BarChart3 } from 'lucide-react'
 import { postsService } from '../../services'
 import { post as httpPost } from '../../utils/http'
 import { API_ENDPOINTS } from '../../constants/api'
@@ -15,8 +15,6 @@ export default function CreatePost() {
   const [section, setSection] = useState('a-stock')
   const [tags, setTags] = useState([])
   const [tagInput, setTagInput] = useState('')
-  const [images, setImages] = useState([])
-  const [files, setFiles] = useState([])
   const [showPreview, setShowPreview] = useState(false)
 
   const [pollQuestion] = useState('')
@@ -51,30 +49,6 @@ export default function CreatePost() {
     setTags(tags.filter(tag => tag !== tagToRemove))
   }
 
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files)
-    files.forEach(file => {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImages([...images, { id: Date.now(), url: reader.result, name: file.name }])
-      }
-      reader.readAsDataURL(file)
-    })
-  }
-
-  const handleFileUpload = (e) => {
-    const selected = Array.from(e.target.files)
-    setFiles([...files, ...selected.map(f => ({ id: Date.now() + Math.random(), file: f, name: f.name, size: f.size }))])
-  }
-
-  const handleRemoveImage = (imageId) => {
-    setImages(images.filter(img => img.id !== imageId))
-  }
-
-  const handleRemoveFile = (fileId) => {
-    setFiles(files.filter(f => f.id !== fileId))
-  }
-
   const handleSubmit = async () => {
     if (!user) {
       alert('请先登录后再发帖')
@@ -92,14 +66,10 @@ export default function CreatePost() {
     }
 
     try {
-      const fullContent = images.length > 0
-        ? content + '\n\n' + images.map(img => `![${img.name}](${img.url})`).join('\n')
-        : content
-
       const payload = {
         board_id: section,
         title: postType === 'realtime' ? `实时讨论 ${new Date().toLocaleString()}` : title.trim(),
-        content: fullContent,
+        content: content,
         tags,
         post_type: postTypeMap[postType] || 'DISCUSSION',
       }
@@ -117,28 +87,29 @@ export default function CreatePost() {
         }
       }
 
-      if (files.length > 0 && created?.post_id) {
-        for (const f of files) {
-          try {
-            const formData = new FormData()
-            formData.append('file', f.file)
-            formData.append('post_id', created.post_id)
-            await httpPost(API_ENDPOINTS.UPLOAD_ATTACHMENT, formData)
-          } catch { /* ignore upload errors */ }
-        }
-      }
-
       if (created && created.post_id) {
         navigate(`/post/${created.post_id}`)
       } else {
         navigate('/')
       }
     } catch (err) {
+      console.error('发布帖子错误:', err)
+      console.error('错误类型:', err?.name)
+      console.error('错误消息:', err?.message)
+      console.error('错误状态码:', err?.status)
+      
       if (err.status === 401) {
         alert('登录状态已失效，请重新登录')
         navigate('/login', { state: { from: '/create' } })
         return
       }
+      
+      // 处理网络错误
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        alert('网络连接失败，请检查后端服务是否正常运行')
+        return
+      }
+      
       alert(err?.message || err?.detail || '发布失败')
     }
   }
@@ -276,48 +247,6 @@ export default function CreatePost() {
                 </span>
               ))}
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">图片附件</label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-              <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" id="image-upload" />
-              <label htmlFor="image-upload" className="flex flex-col items-center cursor-pointer">
-                <Image className="h-8 w-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">点击上传图片</span>
-              </label>
-            </div>
-            {images.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 mt-2">
-                {images.map(img => (
-                  <div key={img.id} className="relative">
-                    <img src={img.url} alt={img.name} className="w-full h-24 object-cover rounded" />
-                    <button onClick={() => handleRemoveImage(img.id)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"><X className="h-4 w-4" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">分析报告附件（PDF/Excel，需审核）</label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-              <input type="file" accept=".pdf,.xlsx,.xls,.csv" multiple onChange={handleFileUpload} className="hidden" id="file-upload" />
-              <label htmlFor="file-upload" className="flex flex-col items-center cursor-pointer">
-                <FileText className="h-8 w-8 text-gray-400 mb-2" />
-                <span className="text-sm text-gray-500">上传 PDF / Excel 分析报告</span>
-              </label>
-            </div>
-            {files.length > 0 && (
-              <div className="space-y-2 mt-2">
-                {files.map(f => (
-                  <div key={f.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="text-sm text-gray-700 truncate">{f.name}</span>
-                    <button onClick={() => handleRemoveFile(f.id)} className="text-red-500 hover:text-red-700"><X className="h-4 w-4" /></button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
