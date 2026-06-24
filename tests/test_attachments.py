@@ -13,11 +13,23 @@ def test_multi_file_upload(client: TestClient):
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
+    # Create a test post first
+    post_resp = client.post("/api/v1/posts", json={
+        "board_id": "test-board",
+        "title": "Test Post for Attachments",
+        "content": "Testing attachments",
+        "post_type": "DISCUSSION"
+    }, headers=headers)
+    assert post_resp.status_code == 201
+    post_id = post_resp.json()["post_id"]
+
     files = [
         ("files", ("a.txt", io.BytesIO(b"hello"), "text/plain")),
         ("files", ("b.txt", io.BytesIO(b"world"), "text/plain")),
     ]
-    resp = client.post(f"/api/v1/attachments?post_id=testpost", files=files, headers=headers)
+    # Send post_id as form data, not query parameter
+    data = {"post_id": post_id}
+    resp = client.post("/api/v1/attachments", files=files, data=data, headers=headers)
     assert resp.status_code == 201
     data = resp.json()
     assert isinstance(data, list)

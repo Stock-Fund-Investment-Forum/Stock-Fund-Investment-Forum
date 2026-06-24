@@ -22,11 +22,12 @@ def check_sensitive(content):
 
 
 def add_points(db: Session, user_id: str, points: int):
+    """添加积分，不自动提交事务，由调用者决定何时提交"""
     user = db.query(models.User).filter(models.User.user_id == user_id).first()
     if user:
         user.points = (user.points or 0) + points
         user.level = min((user.points or 0) // 100 + 1, 50)
-        db.commit()
+        # 移除db.commit()，由调用者决定何时提交
 
 
 # =====================================================
@@ -505,7 +506,8 @@ def get_posts(
     tag_id: str = None,
     q: str = None,
     include_deleted: bool = False,
-    order_by: str = "created_at",  # 'hot', 'created_at'
+    order_by: str = "created_at",  # 'hot', 'created_at', 'comment_count', 'like_count', 'essence'
+    is_essence: bool = None,
 ):
     """获取帖子列表"""
     query = db.query(models.Post)
@@ -536,11 +538,19 @@ def get_posts(
             .filter(models.Tag.tag_id == tag_id)
         )
 
+    # filter by essence if requested
+    if is_essence is not None:
+        query = query.filter(models.Post.is_essence == bool(is_essence))
+
+    # ordering
     if order_by == "hot":
-        query = query.order_by(
-            models.Post.view_count.desc(), models.Post.like_count.desc()
-        )
+        query = query.order_by(models.Post.view_count.desc(), models.Post.like_count.desc())
+    elif order_by == "comment_count":
+        query = query.order_by(models.Post.comment_count.desc())
+    elif order_by == "like_count":
+        query = query.order_by(models.Post.like_count.desc())
     else:
+        # default to created_at desc
         query = query.order_by(models.Post.created_at.desc())
 
     return query.offset(skip).limit(limit).all()
@@ -656,9 +666,9 @@ def increment_post_like(db: Session, post_id: str):
     db_post = get_post(db, post_id)
     if db_post:
         db_post.like_count += 1
+        add_points(db, db_post.user_id, 1)
         db.commit()
         db.refresh(db_post)
-        add_points(db, db_post.user_id, 1)
     return db_post
 
 
@@ -725,10 +735,10 @@ def create_comment(db: Session, comment: schemas.CommentCreate, user_id: str):
     if post:
         post.comment_count += 1
 
+    add_points(db, user_id, 2)
+    
     db.commit()
     db.refresh(db_comment)
-
-    add_points(db, user_id, 2)
 
     return db_comment
 

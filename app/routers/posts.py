@@ -31,7 +31,8 @@ def list_posts(
     tag_id: str = Query(None),
     q: str = Query(None),
     include_deleted: bool = Query(False),
-    order_by: str = Query("created_at"),  # 'hot' or 'created_at'
+    order_by: str = Query("created_at"),  # 'hot'|'created_at'|'comment_count'|'like_count'|'essence'
+    is_essence: bool = Query(None),
     db: Session = Depends(get_db),
 ):
     """获取帖子列表"""
@@ -46,7 +47,8 @@ def list_posts(
         tag_id=tag_id,
         q=q,
         include_deleted=include_deleted,
-        order_by=order_by,
+    order_by=order_by,
+    is_essence=is_essence,
     )
     return enrich_posts_with_nicknames(db, posts)
 
