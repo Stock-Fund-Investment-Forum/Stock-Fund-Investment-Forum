@@ -1,0 +1,653 @@
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Lock, Bell, Shield, Globe, ChevronRight, Camera, Check, Award, ClipboardList, Upload, Send } from 'lucide-react';
+import { usersService } from '../../services';
+import { post } from '../../utils/http';
+import { useAuth } from '../../context/AuthContext';
+
+export default function Settings() {
+  const navigate = useNavigate();
+  const { user, updateUser, isAuthenticated } = useAuth();
+  const [activeSection, setActiveSection] = useState('profile');
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    nickname: user?.nickname || '',
+    bio: user?.bio || '',
+    location: user?.location || '',
+    website: user?.website || '',
+    email: user?.email || '',
+    phone: user?.phone || ''
+  });
+
+  // 监听用户数据变化，更新表单
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        nickname: user.nickname || '',
+        bio: user.bio || '',
+        location: user.location || '',
+        website: user.website || '',
+        email: user.email || '',
+        phone: user.phone || ''
+      });
+    }
+  }, [user]);
+
+  // 未登录时跳转到登录页
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+    }
+  }, [isAuthenticated]);
+
+  const [investmentPreferences, setInvestmentPreferences] = useState({
+    markets: ['A股', '港股'],
+    style: '进取型',
+    industries: ['科技', '消费']
+  });
+  const [notificationSettings, setNotificationSettings] = useState({
+    newFollower: true,
+    commentNotification: true,
+    likeNotification: true,
+    mentionNotification: true,
+    messageNotification: true,
+    systemNotification: true
+  });
+  const [privacySettings, setPrivacySettings] = useState({
+    bioVisible: 'everyone',
+    followingVisible: 'everyone',
+    favoritesVisible: 'everyone',
+    allowMention: true
+  });
+
+  const [certType, setCertType] = useState('从业资格');
+  const [certDesc, setCertDesc] = useState('');
+  const [certSubmitting, setCertSubmitting] = useState(false);
+  const [certMsg, setCertMsg] = useState('');
+
+  const assessmentQuestions = [
+    { key: 'q1', question: '您的投资经验年限是？' },
+    { key: 'q2', question: '您能承受的最大投资亏损是？' },
+    { key: 'q3', question: '您的投资主要目的是？' },
+    { key: 'q4', question: '您倾向于哪种投资品种？' },
+    { key: 'q5', question: '您是否了解杠杆交易的风险？' },
+  ];
+  const [assessmentAnswers, setAssessmentAnswers] = useState({});
+  const [assessSubmitting, setAssessSubmitting] = useState(false);
+  const [assessResult, setAssessResult] = useState(null);
+
+  const sections = [
+    { id: 'profile', label: '个人资料', icon: User },
+    { id: 'security', label: '账号安全', icon: Lock },
+    { id: 'notifications', label: '通知设置', icon: Bell },
+    { id: 'privacy', label: '隐私设置', icon: Shield },
+    { id: 'preferences', label: '投资偏好', icon: Globe },
+    { id: 'certification', label: '专业认证', icon: Award },
+    { id: 'assessment', label: '风险评估', icon: ClipboardList },
+  ];
+
+  const handleSaveProfile = async () => {
+    // 兼容 user_id 和 id 两种字段名
+    const userId = user?.user_id || user?.id;
+    
+    if (!userId) {
+      alert('用户信息异常，请重新登录');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      // 调用后端 API 更新用户信息
+      // 后端 UserBase schema 要求 email 或 phone 至少一个必填
+      const updatedUser = await usersService.updateUser(userId, {
+        nickname: formData.nickname,
+        bio: formData.bio,
+        email: formData.email || user.email, // 保留原有 email
+        phone: formData.phone || user.phone, // 保留原有 phone
+        location: formData.location,
+        website: formData.website
+      });
+      
+      // 更新 AuthContext 中的用户信息
+      updateUser(updatedUser);
+      
+      alert('资料保存成功');
+    } catch (err) {
+      console.error('Failed to save profile:', err);
+      // 显示更详细的错误信息
+      const errorMsg = err.data?.detail 
+        ? (Array.isArray(err.data.detail) ? err.data.detail.map(d => d.msg).join(', ') : err.data.detail)
+        : (err.message || '请稍后重试');
+      alert('保存失败: ' + errorMsg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSavePreferences = () => {
+    console.warn('Saving preferences:', investmentPreferences);
+    alert('偏好保存成功');
+  };
+
+  const handleSavePrivacy = () => {
+    console.warn('Saving privacy:', privacySettings);
+    alert('隐私设置保存成功');
+  };
+
+  const handleSaveNotifications = () => {
+    console.warn('Saving notifications:', notificationSettings);
+    alert('通知设置保存成功');
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          <nav className="space-y-1">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-lg ${
+                  activeSection === section.id
+                    ? 'bg-primary-50 text-primary-700 font-medium'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <section.icon className="h-5 w-5" />
+                  <span>{section.label}</span>
+                </div>
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          {/* Profile Settings */}
+          {activeSection === 'profile' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-6">个人资料</h2>
+
+              {/* Avatar */}
+              <div className="flex items-center space-x-6 mb-8">
+                <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center text-5xl relative">
+                  👤
+                  <button className="absolute bottom-0 right-0 bg-primary-600 text-white rounded-full p-2 hover:bg-primary-700">
+                    <Camera className="h-4 w-4" />
+                  </button>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">头像</h3>
+                  <p className="text-sm text-gray-500 mt-1">支持 JPG、PNG 格式，建议尺寸 200x200</p>
+                </div>
+              </div>
+
+              {/* Form Fields */}
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">昵称</label>
+                  <input
+                    type="text"
+                    value={formData.nickname}
+                    onChange={(e) => setFormData({ ...formData, nickname: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">个人简介</label>
+                  <textarea
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                    placeholder="介绍一下自己..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">所在地</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">个人网站</label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    placeholder="https://"
+                  />
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <button onClick={handleSaveProfile} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                    保存修改
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Security Settings */}
+          {activeSection === 'security' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-6">账号安全</h2>
+
+              <div className="space-y-6">
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-gray-900">修改密码</h3>
+                    <p className="text-sm text-gray-500 mt-1">定期修改密码以保护账号安全</p>
+                  </div>
+                  <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    修改
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-gray-900">实名认证</h3>
+                    <p className="text-sm text-gray-500 mt-1">完成实名认证以解锁更多功能</p>
+                  </div>
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">已认证</span>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-gray-900">专业认证</h3>
+                    <p className="text-sm text-gray-500 mt-1">申请专业投资者认证，获得加V标识</p>
+                  </div>
+                  <Link to="/settings/professional" className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                    申请认证
+                  </Link>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-gray-900">风险评估</h3>
+                    <p className="text-sm text-gray-500 mt-1">完成投资者适当性评估</p>
+                  </div>
+                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">进取型</span>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-gray-900">绑定手机</h3>
+                    <p className="text-sm text-gray-500 mt-1">{formData.phone}</p>
+                  </div>
+                  <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    更换
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-gray-900">绑定邮箱</h3>
+                    <p className="text-sm text-gray-500 mt-1">{formData.email}</p>
+                  </div>
+                  <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    更换
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notification Settings */}
+          {activeSection === 'notifications' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-6">通知设置</h2>
+
+              <div className="space-y-4">
+                {[
+                  { key: 'newFollower', label: '新粉丝通知', desc: '当有新用户关注你时通知' },
+                  { key: 'commentNotification', label: '评论通知', desc: '当有人评论你的帖子时通知' },
+                  { key: 'likeNotification', label: '点赞通知', desc: '当有人点赞你的内容时通知' },
+                  { key: 'mentionNotification', label: '@提及通知', desc: '当有人@你时通知' },
+                  { key: 'messageNotification', label: '私信通知', desc: '当收到新私信时通知' },
+                  { key: 'systemNotification', label: '系统通知', desc: '接收系统公告和活动通知' }
+                ].map((item) => (
+                  <div key={item.key} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{item.label}</h3>
+                      <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={notificationSettings[item.key]}
+                        onChange={(e) => setNotificationSettings({
+                          ...notificationSettings,
+                          [item.key]: e.target.checked
+                        })}
+                        className="sr-only peer"
+                      />
+                      <div
+                        className={`relative w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 ${
+                          notificationSettings[item.key] ? 'bg-primary-600' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-1 left-1 bg-white rounded-full h-4 w-4 transition-all ${
+                            notificationSettings[item.key] ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        ></span>
+                      </div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-4 border-t border-gray-200">
+                <button onClick={handleSaveNotifications} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                  保存设置
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Privacy Settings */}
+          {activeSection === 'privacy' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-6">隐私设置</h2>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">个人简介可见范围</label>
+                  <select
+                    value={privacySettings.bioVisible}
+                    onChange={(e) => setPrivacySettings({ ...privacySettings, bioVisible: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="everyone">所有人</option>
+                    <option value="followers">仅粉丝</option>
+                    <option value="self">仅自己</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">关注列表可见范围</label>
+                  <select
+                    value={privacySettings.followingVisible}
+                    onChange={(e) => setPrivacySettings({ ...privacySettings, followingVisible: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="everyone">所有人</option>
+                    <option value="followers">仅粉丝</option>
+                    <option value="self">仅自己</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">收藏夹可见范围</label>
+                  <select
+                    value={privacySettings.favoritesVisible}
+                    onChange={(e) => setPrivacySettings({ ...privacySettings, favoritesVisible: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="everyone">所有人</option>
+                    <option value="followers">仅粉丝</option>
+                    <option value="self">仅自己</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div>
+                    <h3 className="font-medium text-gray-900">允许他人@我</h3>
+                    <p className="text-sm text-gray-500 mt-1">关闭后其他用户无法在帖子中@你</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={privacySettings.allowMention}
+                      onChange={(e) => setPrivacySettings({ ...privacySettings, allowMention: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div
+                      className={`relative w-11 h-6 rounded-full transition-colors peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 ${
+                        privacySettings.allowMention ? 'bg-primary-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 left-1 bg-white rounded-full h-4 w-4 transition-all ${
+                          privacySettings.allowMention ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      ></span>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <button onClick={handleSavePrivacy} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                    保存设置
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Investment Preferences */}
+          {activeSection === 'preferences' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-6">投资偏好</h2>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">关注市场</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['A股', '港股', '美股', '基金', '期货'].map((market) => (
+                      <button
+                        key={market}
+                        onClick={() => {
+                          if (investmentPreferences.markets.includes(market)) {
+                            setInvestmentPreferences({
+                              ...investmentPreferences,
+                              markets: investmentPreferences.markets.filter(m => m !== market)
+                            });
+                          } else {
+                            setInvestmentPreferences({
+                              ...investmentPreferences,
+                              markets: [...investmentPreferences.markets, market]
+                            });
+                          }
+                        }}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium ${
+                          investmentPreferences.markets.includes(market)
+                            ? 'bg-primary-50 border-primary-600 text-primary-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        {investmentPreferences.markets.includes(market) && (
+                          <Check size={16} />
+                        )}
+                        {market}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">风险偏好</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['保守型', '稳健型', '进取型'].map((style) => (
+                      <button
+                        key={style}
+                        onClick={() => setInvestmentPreferences({ ...investmentPreferences, style })}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium ${
+                          investmentPreferences.style === style
+                            ? 'bg-primary-50 border-primary-600 text-primary-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        {investmentPreferences.style === style && (
+                          <Check size={16} />
+                        )}
+                        {style}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">关注行业</label>
+                  <div className="flex flex-wrap gap-2">
+                    {['科技', '消费', '金融', '医疗', '新能源', '半导体', '地产'].map((industry) => (
+                      <button
+                        key={industry}
+                        onClick={() => {
+                          if (investmentPreferences.industries.includes(industry)) {
+                            setInvestmentPreferences({
+                              ...investmentPreferences,
+                              industries: investmentPreferences.industries.filter(i => i !== industry)
+                            });
+                          } else {
+                            setInvestmentPreferences({
+                              ...investmentPreferences,
+                              industries: [...investmentPreferences.industries, industry]
+                            });
+                          }
+                        }}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all font-medium ${
+                          investmentPreferences.industries.includes(industry)
+                            ? 'bg-primary-50 border-primary-600 text-primary-700'
+                            : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        {investmentPreferences.industries.includes(industry) && (
+                          <Check size={16} />
+                        )}
+                        {industry}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-4 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    设置投资偏好后，系统将根据您的偏好推荐相关内容，帮助您发现更有价值的讨论。
+                  </p>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <button onClick={handleSavePreferences} className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">
+                    保存偏好
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 专业认证 */}
+          {activeSection === 'certification' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-2">专业认证</h2>
+              <p className="text-sm text-gray-500 mb-6">上传从业资格、学历证明等材料申请加V认证，审核通过后账号将显示专业标识。</p>
+
+              {certMsg && (
+                <div className={`p-3 rounded-lg mb-4 text-sm ${certMsg.includes('成功') ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                  {certMsg}
+                </div>
+              )}
+
+              {user?.auth_level === 'EXPERT' && (
+                <div className="p-4 bg-green-50 rounded-lg mb-6 flex items-center space-x-2">
+                  <Award className="h-6 w-6 text-green-600" />
+                  <span className="text-green-700 font-medium">您已通过专业认证，账号已加V</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">认证类型</label>
+                  <select value={certType} onChange={e => setCertType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <option>从业资格</option>
+                    <option>学历证明</option>
+                    <option>职业资质</option>
+                    <option>投资业绩证明</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">说明（选填）</label>
+                  <textarea value={certDesc} onChange={e => setCertDesc(e.target.value)} rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                    placeholder="请简要说明您的专业背景..." />
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 text-center">
+                  <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">点击或拖拽上传证明材料（PDF/图片）</p>
+                  <p className="text-xs text-gray-400 mt-1">支持 .pdf, .jpg, .png，最大 10MB</p>
+                </div>
+                <button onClick={async () => {
+                  setCertSubmitting(true); setCertMsg('');
+                  try {
+                    await post('/admin/certifications', { cert_type: certType, description: certDesc || undefined });
+                    setCertMsg('提交成功！管理员将在1-3个工作日内审核。');
+                    setCertDesc('');
+                  } catch (e) { setCertMsg('提交失败: ' + (e.message || '')); }
+                  finally { setCertSubmitting(false); }
+                }} disabled={certSubmitting}
+                  className="flex items-center px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                  <Send className="h-4 w-4 mr-2" />
+                  {certSubmitting ? '提交中...' : '提交认证申请'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 风险评估 */}
+          {activeSection === 'assessment' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <h2 className="text-xl font-bold mb-2">投资者风险评估</h2>
+              <p className="text-sm text-gray-500 mb-6">完成以下问卷，系统将评估您的风险承受能力并匹配适合的投资建议。</p>
+
+              {assessResult && (
+                <div className="p-4 bg-blue-50 rounded-lg mb-6">
+                  <p className="font-medium text-blue-800">评估结果：{assessResult.risk_level}</p>
+                  <p className="text-sm text-blue-600 mt-1">得分：{assessResult.score} 分</p>
+                  <p className="text-xs text-blue-500 mt-1">{'（得分 ≥ 20：进取型，≥ 12：稳健型，\u003C 12：保守型）'}</p>
+                </div>
+              )}
+
+              <div className="space-y-6">
+                {assessmentQuestions.map((q) => (
+                  <div key={q.key}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">{q.question}</label>
+                    <input type="text" value={assessmentAnswers[q.key] || ''}
+                      onChange={e => setAssessmentAnswers({ ...assessmentAnswers, [q.key]: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      placeholder="请输入您的回答..." />
+                  </div>
+                ))}
+                <button onClick={async () => {
+                  const answers = assessmentQuestions.map(q => ({ question: q.question, answer: assessmentAnswers[q.key] || '' }));
+                  if (answers.some(a => !a.answer)) { alert('请回答所有问题'); return; }
+                  setAssessSubmitting(true);
+                  try {
+                    const res = await post('/admin/risk-assessments', { answers });
+                    setAssessResult({ score: res.score, risk_level: res.risk_level });
+                  } catch (e) { alert('提交失败: ' + (e.message || '')); }
+                  finally { setAssessSubmitting(false); }
+                }} disabled={assessSubmitting}
+                  className="flex items-center px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  {assessSubmitting ? '提交中...' : '提交评估'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
