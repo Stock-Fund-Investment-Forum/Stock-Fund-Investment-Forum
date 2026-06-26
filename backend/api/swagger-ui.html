@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stock & Fund Investment Forum - Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
+  <style>body{margin:0;padding:0}</style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist/swagger-ui-standalone-preset.js"></script>
+  <script>
+    // 支持通过 ?url= 指定不同的 OpenAPI 文档；默认使用同目录下的 openapi.yaml
+    function getOpenApiUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('url') || 'openapi.yaml';
+    }
+
+    window.onload = function() {
+      const ui = SwaggerUIBundle({
+        url: getOpenApiUrl(),
+        dom_id: '#swagger-ui',
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        layout: 'StandaloneLayout'
+      });
+      window.ui = ui;
+    };
+  </script>
+</body>
+</html>
